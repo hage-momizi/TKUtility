@@ -6,6 +6,11 @@ const perplexityClient = new OpenAI({
   apiKey: process.env.PERPLEXITY_API_KEY,
 });
 
+const openRouterClient = new OpenAI({
+  baseURL: 'https://openrouter.ai/api/v1',
+  apiKey: process.env.OPENROUTER_API_KEY,
+});
+
 /**
  * ニュースを要約する
  * @param {string} content - ニュース本文
@@ -168,6 +173,138 @@ category: <カテゴリ名>
 }
 
 /**
+ * 法令検索用のキーワードを生成する（OpenRouter使用）
+ * @param {string} userQuery - ユーザーの自然言語クエリ
+ * @returns {string} 法令検索キーワード
+ */
+async function generateLawSearchKeywords(userQuery) {
+  try {
+    const completion = await openRouterClient.chat.completions.create({
+      model: 'xiaomi/mimo-v2-flash:free',
+      messages: [
+        {
+          role: 'system',
+          content: 'あなたは日本の法律相談アシスタントです。ユーザーの相談内容から、最も関連性の高い日本の法令を検索するためのキーワードを2個生成してください。キーワードは日本語で、e-gov法令検索でヒットしやすい一般的な用語を使用します。1個目は具体的な犯罪名、2個目は一般的な用語にしてください。スペース区切りで出力し、説明は不要です。例: 相談内容「未成年者が性的画像を送ってきた」→「児童ポルノ 児童」'
+        },
+        {
+          role: 'user',
+          content: userQuery
+        }
+      ],
+      max_tokens: 50,
+      temperature: 0.2
+    });
+
+    return completion.choices[0].message.content.trim();
+  } catch (error) {
+    console.error('OpenRouter keyword generation error:', error);
+    // フォールバック：クエリをそのままキーワードとして使用
+    return userQuery;
+  }
+}
+
+/**
+ * 法令検索結果の関連性を検証する（OpenRouter使用）
+ * @param {string} userQuery - ユーザーのクエリ
+ * @param {Array} searchResults - 検索結果の配列
+ * @returns {Array} 関連する結果のみの配列
+ */
+async function filterRelevantLawResults(userQuery, searchResults) {
+  if (!searchResults || searchResults.length === 0) {
+    return [];
+  }
+
+  try {
+    const filteredResults = [];
+
+    for (const item of searchResults) {
+      const lawInfo = item.law_info;
+      const revisionInfo = item.revision_info;
+      const lawTitle = revisionInfo.law_title || lawInfo.law_num;
+
+      // 該当箇所のテキストを取得
+      let textSnippet = '';
+      if (item.sentences && item.sentences.length > 0) {
+        const sentence = item.sentences[0];
+        textSnippet = sentence.text.replace(/<[^>]*>/g, '').trim();
+      }
+
+      const completion = await openRouterClient.chat.completions.create({
+        model: 'xiaomi/mimo-v2-flash:free',
+        messages: [
+          {
+            role: 'system',
+            content: 'ユーザーの相談内容と法令の内容が関連しているかを判断してください。関連している場合は「関連」、関連していない場合は「無関係」とだけ答えてください。'
+          },
+          {
+            role: 'user',
+            content: `相談内容: ${userQuery}\n\n法令名: ${lawTitle}\n該当内容: ${textSnippet}\n\nこの法令は相談内容に関連していますか？`
+          }
+        ],
+        max_tokens: 20,
+        temperature: 0.1
+      });
+
+      const response = completion.choices[0].message.content.trim();
+      if (response.includes('関連')) {
+        filteredResults.push(item);
+      }
+
+      // 最大3件まで
+      if (filteredResults.length >= 3) break;
+    }
+
+    return filteredResults;
+  } catch (error) {
+    console.error('OpenRouter relevance check error:', error);
+    // エラーの場合は元の結果をそのまま返す
+    return searchResults.slice(0, 3);
+  }
+}
+
+/**
+ * 法令検索結果のまとめを生成する（OpenRouter使用）
+ * @param {string} userQuery - ユーザーのクエリ
+ * @param {Array} searchResults - 検索結果の配列
+ * @returns {string} AIによるまとめ
+ */
+async function generateLawSearchSummary(userQuery, searchResults) {
+  if (!searchResults || searchResults.length === 0) {
+    return '該当する法令が見つかりませんでした。専門家に相談することをおすすめします。';
+  }
+
+  try {
+    // 検索結果をテキスト化
+    const resultsText = searchResults.slice(0, 3).map((item, index) => {
+      const lawInfo = item.law_info;
+      const revisionInfo = item.revision_info;
+      return `${index + 1}. ${revisionInfo.law_title || lawInfo.law_num}`;
+    }).join('\n');
+
+    const completion = await openRouterClient.chat.completions.create({
+      model: 'xiaomi/mimo-v2-flash:free',
+      messages: [
+        {
+          role: 'system',
+          content: 'あなたは日本の法律相談アシスタントです。ユーザーの相談内容と関連法令を基に、簡潔なアドバイスを100文字以内でまとめてください。法的助言ではなく、一般的な情報として提供し、専門家相談を勧めてください。'
+        },
+        {
+          role: 'user',
+          content: `相談内容: ${userQuery}\n\n関連法令:\n${resultsText}\n\nこの相談に対するアドバイスをまとめてください。`
+        }
+      ],
+      max_tokens: 150,
+      temperature: 0.3
+    });
+
+    return completion.choices[0].message.content.trim();
+  } catch (error) {
+    console.error('OpenRouter summary generation error:', error);
+    return '関連法令が見つかりました。詳細は専門家に相談してください。';
+  }
+}
+
+/**
  * レートリミット対応のAPIコール関数
  * @param {function} apiCall - API呼び出し関数
  * @param {number} retries - リトライ回数
@@ -195,5 +332,8 @@ module.exports = {
   generateNewsTitle,
   generateFooterInfo,
   processNewsWithPerplexity,
+  generateLawSearchKeywords,
+  filterRelevantLawResults,
+  generateLawSearchSummary,
   apiCallWithRetry
 };

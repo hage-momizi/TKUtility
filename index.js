@@ -35,6 +35,7 @@ const earthquakeSetEewCommand = require('./commands/earthquake-set-eew');
 const earthquakeHistoryCommand = require('./commands/earthquake-history');
 const earthquakeWatchCommand = require('./commands/earthquake-watch');
 const earthquakeSettingsCommand = require('./commands/earthquake-settings');
+const lawSearchCommand = require('./commands/law-search');
 
 const pinsFile = path.join(__dirname, 'pins.json');
 const newsConfigFile = path.join(__dirname, 'newsconfig.json');
@@ -302,6 +303,7 @@ async function registerCommands(client) {
       earthquakeHistoryCommand.command.toJSON(),
       earthquakeWatchCommand.command.toJSON(),
       earthquakeSettingsCommand.command.toJSON(),
+      lawSearchCommand.command.toJSON(),
     ];
     await rest.put(Routes.applicationCommands(client.user.id), { body: commands });
     console.log('Slash commands registered.');
@@ -363,7 +365,8 @@ const commandHandlers = {
   'earthquake-set-eew': earthquakeSetEewCommand,
   'earthquake-history': earthquakeHistoryCommand,
   'earthquake-watch': earthquakeWatchCommand,
-  'earthquake-settings': earthquakeSettingsCommand
+  'earthquake-settings': earthquakeSettingsCommand,
+  'law-search': lawSearchCommand
 };
 
 // 管理者専用コマンド
