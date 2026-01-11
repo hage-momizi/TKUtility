@@ -1,0 +1,25 @@
+{
+  "name": "ping-agent",
+  "version": "1.0.0",
+  "description": "Tokyo Ping Agent Server for regional network testing",
+  "main": "agent.js",
+  "scripts": {
+    "start": "node agent.js",
+    "dev": "nodemon agent.js",
+    "pm2": "pm2 start agent.js --name ping-agent",
+    "pm2:stop": "pm2 stop ping-agent",
+    "pm2:delete": "pm2 delete ping-agent"
+  },
+  "dependencies": {
+    "express": "^5.2.1",
+    "cors": "^2.8.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.0"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "author": "TKBot",
+  "license": "MIT"
+}
