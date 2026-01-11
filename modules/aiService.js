@@ -327,6 +327,67 @@ async function apiCallWithRetry(apiCall, retries = 3) {
   }
 }
 
+/**
+ * AIチャットストリーミング応答
+ * @param {string} userMessage - ユーザーのメッセージ
+ * @param {string} control - 制御文字列（口調設定）
+ * @param {string} provider - AIプロバイダー ('perplexity' or 'openrouter')
+ * @param {Array} conversationHistory - 会話履歴 [{ role: 'user'|'assistant', content: string }]
+ * @returns {AsyncGenerator<string>} ストリーミングテキスト
+ */
+async function* streamAIResponse(userMessage, control = '', provider = 'openrouter', conversationHistory = []) {
+  try {
+    const messages = [];
+
+    // システムメッセージ
+    if (control) {
+      messages.push({
+        role: 'system',
+        content: control
+      });
+    }
+
+    // 会話履歴（最新20件）
+    const recentHistory = conversationHistory.slice(-20);
+    messages.push(...recentHistory);
+
+    // 新しいユーザーメッセージ
+    messages.push({
+      role: 'user',
+      content: userMessage
+    });
+
+    let stream;
+    if (provider === 'perplexity') {
+      stream = await perplexityClient.chat.completions.create({
+        model: 'sonar',
+        messages: messages,
+        stream: true,
+        max_tokens: 1000,
+        temperature: 0.7
+      });
+    } else {
+      stream = await openRouterClient.chat.completions.create({
+        model: 'openai/gpt-oss-120b:free',
+        messages: messages,
+        stream: true,
+        max_tokens: 1000,
+        temperature: 0.7
+      });
+    }
+
+    for await (const chunk of stream) {
+      const content = chunk.choices[0]?.delta?.content;
+      if (content) {
+        yield content;
+      }
+    }
+  } catch (error) {
+    console.error(`${provider} streaming error:`, error);
+    yield '申し訳ありませんが、エラーが発生しました。';
+  }
+}
+
 module.exports = {
   summarizeNews,
   generateNewsTitle,
@@ -335,5 +396,6 @@ module.exports = {
   generateLawSearchKeywords,
   filterRelevantLawResults,
   generateLawSearchSummary,
+  streamAIResponse,
   apiCallWithRetry
 };

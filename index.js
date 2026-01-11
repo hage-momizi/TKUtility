@@ -2,7 +2,7 @@ const { Client, DefaultWebSocketManagerOptions , GatewayIntentBits, EmbedBuilder
 const path = require('path');
 const { LavalinkManager } = require('lavalink-client');
 const { loadJSON, saveJSON } = require('./modules/fileStorage');
-const { summarizeNews, generateNewsTitle, generateFooterInfo, processNewsWithPerplexity } = require('./modules/aiService');
+const { summarizeNews, generateNewsTitle, generateFooterInfo, processNewsWithPerplexity, streamAIResponse } = require('./modules/aiService');
 const { startWebServer } = require('./webServer');
 const { fetchAndSaveNews, fetchRandomNews } = require('./modules/newsService');
 const { startRealtimeMonitoring } = require('./modules/earthquakeService');
@@ -36,10 +36,20 @@ const earthquakeHistoryCommand = require('./commands/earthquake-history');
 const earthquakeWatchCommand = require('./commands/earthquake-watch');
 const earthquakeSettingsCommand = require('./commands/earthquake-settings');
 const lawSearchCommand = require('./commands/law-search');
+const aiChannelCommand = require('./commands/ai-channel');
+const aiControlCommand = require('./commands/ai-control');
+const aiStopCommand = require('./commands/ai-stop');
+const aiStartCommand = require('./commands/ai-start');
+const aiChangeCommand = require('./commands/ai-change');
 
 const pinsFile = path.join(__dirname, 'pins.json');
 const newsConfigFile = path.join(__dirname, 'newsconfig.json');
 const musicSettingsFile = path.join(__dirname, 'musicsettings.json');
+const aiChannelFile = path.join(__dirname, 'aichannel.json');
+const aiChatFile = path.join(__dirname, 'aichat.json');
+
+// AIレートリミット管理: userId -> [timestamp1, timestamp2, ...]
+const aiRateLimit = new Map();
 
 
 
@@ -304,6 +314,11 @@ async function registerCommands(client) {
       earthquakeWatchCommand.command.toJSON(),
       earthquakeSettingsCommand.command.toJSON(),
       lawSearchCommand.command.toJSON(),
+      aiChannelCommand.command.toJSON(),
+      aiControlCommand.command.toJSON(),
+      aiStopCommand.command.toJSON(),
+      aiStartCommand.command.toJSON(),
+      aiChangeCommand.command.toJSON(),
     ];
     await rest.put(Routes.applicationCommands(client.user.id), { body: commands });
     console.log('Slash commands registered.');
@@ -366,11 +381,111 @@ const commandHandlers = {
   'earthquake-history': earthquakeHistoryCommand,
   'earthquake-watch': earthquakeWatchCommand,
   'earthquake-settings': earthquakeSettingsCommand,
-  'law-search': lawSearchCommand
+  'law-search': lawSearchCommand,
+  'ai-channel': aiChannelCommand,
+  'ai-control': aiControlCommand,
+  'ai-stop': aiStopCommand,
+  'ai-start': aiStartCommand,
+  'ai-change': aiChangeCommand
 };
 
 // 管理者専用コマンド
-const adminCommands = ['news_now', 'news_fetch', 'news_timeset'];
+const adminCommands = ['news_now', 'news_fetch', 'news_timeset', 'ai-channel', 'ai-control', 'ai-stop', 'ai-start', 'ai-change'];
+
+/**
+ * AIレートリミットチェック
+ * @param {string} userId - ユーザーID
+ * @returns {boolean} レートリミット内か
+ */
+function checkAIRateLimit(userId) {
+  const now = Date.now();
+  const oneMinute = 60 * 1000;
+  const timestamps = aiRateLimit.get(userId) || [];
+
+  // 1分以上前のタイムスタンプを削除
+  const recentTimestamps = timestamps.filter(ts => now - ts < oneMinute);
+
+  // 10回以上なら拒否
+  if (recentTimestamps.length >= 10) {
+    return false;
+  }
+
+  // 新しいタイムスタンプを追加
+  recentTimestamps.push(now);
+  aiRateLimit.set(userId, recentTimestamps);
+  return true;
+}
+
+/**
+ * AIチャット処理
+ * @param {Message} message - Discordメッセージ
+ */
+async function handleAIChat(message) {
+  if (message.author.bot) return;
+
+  const config = loadJSON(aiChannelFile);
+  const guildConfig = config[message.guild.id];
+  if (!guildConfig || !guildConfig.channelId || guildConfig.channelId !== message.channel.id || !guildConfig.enabled) {
+    return;
+  }
+
+  // レートリミットチェック
+  if (!checkAIRateLimit(message.author.id)) {
+    await message.reply({ content: 'AIの使用回数が制限を超えています。1分後に再度お試しください。', ephemeral: true });
+    return;
+  }
+
+  try {
+    // 会話履歴を取得（返信の場合のみ継続）
+    const chatData = loadJSON(aiChatFile);
+    const userKey = `${message.guild.id}-${message.author.id}`;
+    let conversationHistory = [];
+
+    if (message.reference) {
+      // 返信の場合は会話履歴を継続
+      conversationHistory = chatData[userKey] || [];
+    } else {
+      // 新しい会話の場合は履歴をクリア
+      chatData[userKey] = [];
+      saveJSON(aiChatFile, chatData);
+    }
+
+    // 初期メッセージ送信
+    const responseMessage = await message.reply('<a:telegramthink:1459933307725676658> 考え中...');
+
+    let fullResponse = '';
+    let lastEditTime = Date.now();
+    const generator = streamAIResponse(message.content, guildConfig.control, guildConfig.provider || 'openrouter', conversationHistory);
+
+    for await (const chunk of generator) {
+      fullResponse += chunk;
+      // リアルタイム更新（200msごとに更新してレートリミットを回避）
+      const now = Date.now();
+      if (now - lastEditTime > 200) {
+        await responseMessage.edit(`<a:reimuhakurei:1459951142506070178>${fullResponse}<a:loading:1459949561173901456>`);
+        lastEditTime = now;
+      }
+    }
+
+    // 最終更新（アニメーション除去）
+    await responseMessage.edit(fullResponse);
+
+    // 会話履歴を更新
+    conversationHistory.push({ role: 'user', content: message.content });
+    conversationHistory.push({ role: 'assistant', content: fullResponse });
+
+    // 最新20件のみ保持
+    if (conversationHistory.length > 40) { // user + assistant = 2 per turn, 20 turns = 40
+      conversationHistory.splice(0, conversationHistory.length - 40);
+    }
+
+    chatData[userKey] = conversationHistory;
+    saveJSON(aiChatFile, chatData);
+  } catch (error) {
+    console.error('AI chat error:', error);
+    await message.reply('申し訳ありませんが、エラーが発生しました。');
+  }
+}
 
 /**
  * ピン止めメッセージの更新処理
@@ -445,8 +560,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
   }
 });
 
-// メッセージイベント（ピン止め更新）
-client.on(Events.MessageCreate, handlePinUpdate);
+// メッセージイベント（ピン止め更新とAIチャット）
+client.on(Events.MessageCreate, async (message) => {
+  await handlePinUpdate(message);
+  await handleAIChat(message);
+});
 
 // ボットをログイン
 client.login(process.env.DISCORD_TOKEN);
