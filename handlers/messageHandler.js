@@ -519,4 +519,5 @@ module.exports = {
   handlePinUpdate,
   handleInteraction,
   handleTKUPGain,
+  handleRevolutionFailure,
 };
