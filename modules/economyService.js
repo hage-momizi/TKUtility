@@ -150,14 +150,15 @@ async function updateTKUCRate() {
 
     let changePercent;
 
-    // AIに市場情報を渡してレート決定（レート制限対策）
-    // 毎回呼び出すと429エラーになるため、条件付きで実行
+    // AIに市場情報を渡してレート決定（強化版）
+    // より積極的にAIを使用し、フォールバックを改善
     const shouldUseAI = (
       marketData.buyPressure > 0 ||
       marketData.sellPressure > 0 ||
-      chatActivity > 30 ||
-      recentTrades > 5 ||
-      top3Ratio > 0.5
+      chatActivity > 20 ||
+      recentTrades > 2 ||
+      top3Ratio > 0.3 ||
+      Math.random() < 0.3 // 30%の確率で常にAI使用
     );
 
     if (aiClient && shouldUseAI) {
@@ -207,7 +208,10 @@ async function updateTKUCRate() {
 
       } catch (aiError) {
         console.warn('⚠️ AIレート決定失敗、プログラム計算を使用:', aiError.message);
-        changePercent = (Math.random() - 0.5) * 10; // フォールバック
+
+        // より賢いプログラム計算（市場状況を考慮）
+        changePercent = calculateSmartRateChange(marketData, chatActivity, top3Ratio, recentTrades);
+        console.log(`📊 スマート計算: ${changePercent.toFixed(2)}%`);
       }
     } else {
       // AI利用不可の場合、または市場が静かな場合はプログラム計算
@@ -1182,6 +1186,57 @@ function getRecentTradeCount() {
   }
 
   return tradeCount;
+}
+
+/**
+ * スマートレート計算（AI代替）
+ * @param {object} marketData - 市場データ
+ * @param {number} chatActivity - チャット盛り上がり度
+ * @param {number} top3Ratio - 上位3人保有割合
+ * @param {number} recentTrades - 最近の取引数
+ * @returns {number} 変動率
+ */
+function calculateSmartRateChange(marketData, chatActivity, top3Ratio, recentTrades) {
+  // ベース変動（-3%～+3%）
+  let changePercent = (Math.random() - 0.5) * 6;
+
+  // 市場需給調整
+  if (marketData.buyPressure > marketData.sellPressure) {
+    changePercent += 0.8; // 買い圧力で上昇
+  } else if (marketData.sellPressure > marketData.buyPressure) {
+    changePercent -= 0.8; // 売り圧力で下降
+  }
+
+  // チャット盛り上がり調整
+  if (chatActivity > 50) {
+    changePercent += 0.7; // 盛り上がってると上昇
+  } else if (chatActivity < 20) {
+    changePercent -= 0.3; // 盛り上がりが少ないと下降
+  }
+
+  // 上位保有者集中度調整
+  if (top3Ratio > 0.7) {
+    changePercent -= 1.0; // 寡占化で下降
+  } else if (top3Ratio < 0.3) {
+    changePercent += 0.5; // 分散化で上昇
+  }
+
+  // 取引活発度調整
+  if (recentTrades > 10) {
+    changePercent += 0.6; // 取引活発で上昇
+  } else if (recentTrades < 2) {
+    changePercent -= 0.4; // 取引少ないと下降
+  }
+
+  // TKUP/TKUC比率調整
+  const tkupTkucRatio = marketData.tkupTkucRatio;
+  if (tkupTkucRatio > 2) {
+    changePercent -= 0.5; // TKUP過多で下降
+  } else if (tkupTkucRatio < 0.5) {
+    changePercent += 0.5; // TKUC過多で上昇
+  }
+
+  return changePercent;
 }
 
 /**
