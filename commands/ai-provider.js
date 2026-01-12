@@ -43,7 +43,7 @@ module.exports = {
 
       // デフォルトモデル設定
       if (!aiConfig.model) {
-        aiConfig.model = provider === 'openrouter' ? 'openai/gpt-oss-120b:free' : 'llama-3.1-sonar-large-128k-online';
+        aiConfig.model = provider === 'openrouter' ? 'openai/gpt-oss-120b:free' : 'sonar';
       }
 
       saveJSON(FILES.AI_CONFIG, aiConfig);
