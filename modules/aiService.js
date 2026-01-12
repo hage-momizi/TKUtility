@@ -1,4 +1,6 @@
 const OpenAI = require('openai');
+const { FILES } = require('../config/constants');
+const { loadJSON, saveJSON } = require('./fileStorage');
 require('dotenv').config();
 
 const perplexityClient = new OpenAI({
@@ -388,6 +390,76 @@ async function* streamAIResponse(userMessage, control = '', provider = 'openrout
   }
 }
 
+/**
+ * チャットからユーザー情報を抽出
+ * @param {string} guildId - ギルドID
+ * @param {string} userId - ユーザーID
+ * @param {Array} conversationHistory - 会話履歴
+ */
+async function extractUserInfoFromChat(guildId, userId, conversationHistory) {
+  try {
+    // 会話履歴が十分にある場合のみ抽出
+    if (conversationHistory.length < 4) return; // 最低2往復
+
+    const chatText = conversationHistory.map(item => `${item.role}: ${item.content}`).join('\n');
+
+    // AIにユーザー情報を抽出させる
+    const extractionPrompt = `以下の会話から、ユーザーについての情報を抽出してください。
+
+会話:
+${chatText}
+
+以下の情報をJSON形式で抽出してください（該当しない場合はnull）:
+{
+  "skills": "ユーザーの特技や得意なこと",
+  "personality": "ユーザーの性格や特徴",
+  "interests": "ユーザーの興味や趣味",
+  "other": "その他の情報"
+}
+
+該当情報がない場合はnullを入れてください。JSONのみ出力。`;
+
+    const completion = await openRouterClient.chat.completions.create({
+      model: 'openai/gpt-oss-120b:free',
+      messages: [
+        { role: 'system', content: 'あなたは会話分析アシスタントです。ユーザーの情報を正確に抽出してください。' },
+        { role: 'user', content: extractionPrompt }
+      ],
+      max_tokens: 300,
+      temperature: 0.1
+    });
+
+    const result = completion.choices[0].message.content.trim();
+    let extractedInfo;
+    try {
+      extractedInfo = JSON.parse(result);
+    } catch {
+      return; // JSONパース失敗時は何もしない
+    }
+
+    // ユーザー情報を更新
+    const userData = loadJSON(FILES.AI_USER);
+    const guildUserKey = `${guildId}.${userId}`;
+    if (!userData[guildUserKey]) {
+      userData[guildUserKey] = {};
+    }
+
+    if (extractedInfo.skills && !userData[guildUserKey].skills) {
+      userData[guildUserKey].skills = extractedInfo.skills;
+    }
+    if (extractedInfo.personality && !userData[guildUserKey].personality) {
+      userData[guildUserKey].personality = extractedInfo.personality;
+    }
+    if (extractedInfo.interests && !userData[guildUserKey].interests) {
+      userData[guildUserKey].interests = extractedInfo.interests;
+    }
+
+    saveJSON(FILES.AI_USER, userData);
+  } catch (error) {
+    console.error('User info extraction error:', error);
+  }
+}
+
 module.exports = {
   summarizeNews,
   generateNewsTitle,
@@ -397,5 +469,6 @@ module.exports = {
   filterRelevantLawResults,
   generateLawSearchSummary,
   streamAIResponse,
-  apiCallWithRetry
+  apiCallWithRetry,
+  extractUserInfoFromChat
 };

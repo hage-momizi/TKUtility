@@ -1,6 +1,7 @@
 const axios = require('axios');
 const Parser = require('rss-parser');
-const { summarizeNews } = require('./aiService');
+const { EmbedBuilder } = require('discord.js');
+const { summarizeNews, generateNewsTitle, generateFooterInfo, processNewsWithPerplexity } = require('./aiService');
 const { loadJSON, saveJSON } = require('./fileStorage');
 
 const RSS_SOURCES = {
@@ -182,11 +183,107 @@ async function fetchRandomNews(guildId, configFile = 'newsconfig.json') {
   await fetchAndSaveNews(guildId, randomSource, randomCategory, configFile);
 }
 
+/**
+ * ニュースを配信する関数
+ * @param {Client} client - Discordクライアント
+ * @param {string} guildId - ギルドID
+ * @param {string} source - ソース
+ * @param {string} category - カテゴリ
+ * @param {string} time - 時間
+ */
+async function sendNews(client, guildId, source = null, category = null, time = null) {
+  const config = loadJSON('newsconfig.json');
+  let guildConfig = config[guildId];
+  if (!guildConfig || !guildConfig.channelId) return;
+
+  // ニュースがない場合は自動取得
+  if (!guildConfig.news || guildConfig.news.length === 0) {
+    if (source === 'auto') {
+      try {
+        await fetchRandomNews(guildId, 'newsconfig.json');
+        guildConfig = loadJSON('newsconfig.json')[guildId]; // 再読み込み
+        if (!guildConfig.news || guildConfig.news.length === 0) return;
+      } catch (error) {
+        console.error('Auto fetch failed:', error);
+        return;
+      }
+    } else {
+      return;
+    }
+  }
+
+  try {
+    const channel = await client.channels.fetch(guildConfig.channelId);
+    if (!channel || !channel.isTextBased()) return;
+
+    // AIでタイトル生成 (Perplexity)
+    const now = new Date();
+    const hour = now.getHours();
+    let timeOfDay;
+    if (hour >= 6 && hour < 12) {
+      timeOfDay = '朝';
+    } else if (hour >= 12 && hour < 18) {
+      timeOfDay = '昼';
+    } else if (hour >= 18 && hour < 24) {
+      timeOfDay = '夜';
+    } else {
+      timeOfDay = '深夜';
+    }
+
+    // ニュースのタイトルを1個抽出してタイトル生成
+    const firstNews = guildConfig.news[0];
+    let embedTitle = '📢 今日のニュース'; // デフォルト値
+
+    if (firstNews) {
+      const titleResult = await processNewsWithPerplexity(timeOfDay, firstNews.title, firstNews.summary);
+      embedTitle = titleResult.title;
+    }
+
+    const embed = new EmbedBuilder()
+      .setTitle(embedTitle)
+      .setColor(0x5865f2) // Discordの青色
+      .setTimestamp();
+
+    guildConfig.news.forEach((news, index) => {
+      embed.addFields({
+        name: `${index + 1}. ${news.title}`,
+        value: `${news.summary}\n[詳細を読む](${news.url})`,
+        inline: false
+      });
+    });
+
+    // ニュースの中からランダムに画像があるものを選んで設定
+    const newsWithImages = guildConfig.news.filter(news => news.imageUrl);
+    if (newsWithImages.length > 0) {
+      const randomNews = newsWithImages[Math.floor(Math.random() * newsWithImages.length)];
+      embed.setImage(randomNews.imageUrl);
+    }
+
+    // フッター情報（AI生成）
+    const footerText = await generateFooterInfo(time, source, category, guildConfig);
+    embed.setFooter({ text: footerText });
+
+    await channel.send({ embeds: [embed] });
+
+    // 配信後にニュースをクリア（自動取得の場合はクリアしない）
+    if (source !== 'auto') {
+      const config = loadJSON('newsconfig.json');
+      if (config[guildId]) {
+        config[guildId].news = [];
+        saveJSON('newsconfig.json', config);
+      }
+    }
+  } catch (error) {
+    console.error('Failed to send news:', error);
+  }
+}
+
 module.exports = {
   fetchArticles,
   processNews,
   fetchAndSaveNews,
   fetchRandomNews,
   classifyCategory,
-  RSS_SOURCES
+  RSS_SOURCES,
+  sendNews
 };

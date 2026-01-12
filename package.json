@@ -11,20 +11,12 @@
     "axios": "^1.13.2",
     "canvas": "^3.2.1",
     "discord.js": "^14.0.0",
-<<<<<<< HEAD
-    "dotenv": "^16.0.0",
-    "express": "^5.2.1",
-    "lavalink-client": "^2.7.7",
-    "node-schedule": "^2.1.1",
-    "openai": "^6.15.0",
-=======
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
     "lavalink-client": "^2.7.7",
     "multer": "^2.0.2",
     "node-schedule": "^2.1.1",
     "openai": "^6.16.0",
->>>>>>> 0962f0f (why?)
     "rss-parser": "^3.13.0",
     "ws": "^8.19.0",
     "xml2js": "^0.6.2"
