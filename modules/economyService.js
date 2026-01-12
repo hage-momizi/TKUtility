@@ -121,27 +121,53 @@ function getTKUCRate() {
 }
 
 /**
- * TKUCレートを更新（プログラム計算）
+ * TKUCレートを更新（安定した変動）
  */
 async function updateTKUCRate() {
   try {
     const currentRate = getTKUCRate();
     const rateData = loadJSON(FILES.TKUC_RATE);
 
-    // プログラムで変動を生成（-10% ～ +10% のランダム変動）
-    const changePercent = (Math.random() - 0.5) * 20; // -10% to +10%
-    const minChange = 0.1; // 最小変動0.1%
+    // 市場状況を取得
+    const marketData = analyzeMarketCondition();
 
-    // 変動が小さすぎる場合は調整
-    const adjustedChange = Math.abs(changePercent) < minChange ?
-      (changePercent >= 0 ? minChange : -minChange) : changePercent;
+    // 基本変動: -3% ～ +3%（より安定）
+    let changePercent = (Math.random() - 0.5) * 6; // -3% to +3%
 
-    const newRate = currentRate * (1 + adjustedChange / 100);
+    // 市場需給を考慮した調整
+    if (marketData.buyPressure > marketData.sellPressure) {
+      changePercent += 0.5; // 買い圧力で上昇
+    } else if (marketData.sellPressure > marketData.buyPressure) {
+      changePercent -= 0.5; // 売り圧力で下降
+    }
+
+    // トレンド抑制（連続変動を防ぐ）
+    const recentChanges = getRecentRateChanges();
+    if (recentChanges.length >= 3) {
+      const avgChange = recentChanges.reduce((a, b) => a + b, 0) / recentChanges.length;
+      if (Math.abs(avgChange) > 2) {
+        // トレンドが強い場合は逆方向に調整
+        changePercent -= avgChange * 0.3;
+      }
+    }
+
+    // 最小変動保証
+    const minChange = 0.05; // 0.05%
+    if (Math.abs(changePercent) < minChange) {
+      changePercent = changePercent >= 0 ? minChange : -minChange;
+    }
+
+    // 変動幅を制限（最大±2%）
+    changePercent = Math.max(-2, Math.min(2, changePercent));
+
+    const newRate = currentRate * (1 + changePercent / 100);
 
     console.log('Rate calculation:', {
       current: currentRate,
-      changePercent: adjustedChange.toFixed(2) + '%',
-      newRate: newRate.toFixed(2)
+      changePercent: changePercent.toFixed(2) + '%',
+      newRate: newRate.toFixed(2),
+      buyPressure: marketData.buyPressure,
+      sellPressure: marketData.sellPressure
     });
 
     // レート範囲チェック（最低100 TKUP、最高2000 TKUP）
@@ -159,12 +185,77 @@ async function updateTKUCRate() {
     }
 
     saveJSON(FILES.TKUC_RATE, rateData);
-    console.log(`✅ TKUCレート更新成功: ${currentRate} → ${rateData.currentRate} TKUP (+${adjustedChange.toFixed(2)}%)`);
+    console.log(`✅ TKUCレート更新成功: ${currentRate} → ${rateData.currentRate} TKUP (+${changePercent.toFixed(2)}%)`);
 
   } catch (error) {
     console.error('❌ TKUCレート更新エラー:', error.message);
     // フォールバック: 前回レート維持
   }
+}
+
+/**
+ * 市場状況を分析
+ * @returns {object} 市場データ
+ */
+function analyzeMarketCondition() {
+  const orderBook = getOrderBook();
+  const balances = loadJSON(FILES.USER_BALANCES);
+
+  // 注文数ベースの圧力計算
+  const buyOrders = orderBook.buyOrders || [];
+  const sellOrders = orderBook.sellOrders || [];
+
+  const buyPressure = buyOrders.length;
+  const sellPressure = sellOrders.length;
+
+  // 保有量ベースの圧力計算
+  let totalTKUP = 0;
+  let totalTKUC = 0;
+  let userCount = 0;
+
+  for (const [userId, balance] of Object.entries(balances)) {
+    if (balance) {
+      totalTKUP += balance.tkup || 0;
+      totalTKUC += balance.tkuc || 0;
+      userCount++;
+    }
+  }
+
+  // TKUP/TKUC比率で市場トレンドを判断
+  const tkupTkucRatio = totalTKUP / (totalTKUC * 500 || 1); // TKUCをTKUP換算
+
+  return {
+    buyPressure,
+    sellPressure,
+    totalTKUP,
+    totalTKUC,
+    userCount,
+    tkupTkucRatio
+  };
+}
+
+/**
+ * 最近のレート変動を取得
+ * @param {number} count - 取得する変動数
+ * @returns {Array} 変動率の配列
+ */
+function getRecentRateChanges(count = 5) {
+  const rateData = loadJSON(FILES.TKUC_RATE);
+  const history = rateData.history || [];
+
+  if (history.length < 2) return [];
+
+  const changes = [];
+  for (let i = history.length - 1; i > Math.max(0, history.length - count - 1); i--) {
+    const current = history[i];
+    const previous = history[i - 1];
+    if (previous) {
+      const change = ((current.rate - previous.rate) / previous.rate) * 100;
+      changes.push(change);
+    }
+  }
+
+  return changes.reverse();
 }
 
 /**
