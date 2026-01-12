@@ -12,6 +12,7 @@ const FILES = {
   TKUC_RATE: path.join(__dirname, '../tkucRate.json'),
   TRANSACTION_HISTORY: path.join(__dirname, '../transactionHistory.json'),
   ORDER_BOOK: path.join(__dirname, '../orderBook.json'),
+  AI_CONFIG: path.join(__dirname, '../aiConfig.json'),
 };
 
 // AIレートリミット管理: userId -> [timestamp1, timestamp2, ...]
@@ -46,7 +47,7 @@ const DISCORD_INTENTS = [
 ];
 
 // 管理者専用コマンド
-const ADMIN_COMMANDS = ['news_now', 'news_fetch', 'news_timeset', 'ai-channel', 'ai-control', 'ai-stop', 'ai-start', 'ai-change'];
+const ADMIN_COMMANDS = ['news_now', 'news_fetch', 'news_timeset', 'ai-channel', 'ai-control', 'ai-stop', 'ai-start', 'ai-change', 'ai-provider'];
 
 module.exports = {
   FILES,

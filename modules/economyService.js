@@ -3,22 +3,34 @@ const { loadJSON, saveJSON } = require('./fileStorage');
 const OpenAI = require('openai');
 const { createCanvas } = require('canvas');
 
-// OpenRouterクライアント初期化
-let openRouterClient = null;
+// AIクライアント初期化関数
+function initializeAIClient() {
+  const aiConfig = loadJSON(FILES.AI_CONFIG) || { provider: 'openrouter' };
+  const provider = aiConfig.provider || 'openrouter';
 
-try {
-  if (process.env.OPENROUTER_API_KEY) {
-    openRouterClient = new OpenAI({
-      baseURL: 'https://openrouter.ai/api/v1',
-      apiKey: process.env.OPENROUTER_API_KEY,
-    });
-    console.log('✓ OpenRouter client initialized');
-  } else {
-    console.warn('⚠ OPENROUTER_API_KEY not found in environment');
+  try {
+    if (provider === 'openrouter' && process.env.OPENROUTER_API_KEY) {
+      return new OpenAI({
+        baseURL: 'https://openrouter.ai/api/v1',
+        apiKey: process.env.OPENROUTER_API_KEY,
+      });
+    } else if (provider === 'perplexity' && process.env.PERPLEXITY_API_KEY) {
+      return new OpenAI({
+        baseURL: 'https://api.perplexity.ai',
+        apiKey: process.env.PERPLEXITY_API_KEY,
+      });
+    } else {
+      console.warn(`⚠ AI provider ${provider} not available or API key missing`);
+      return null;
+    }
+  } catch (err) {
+    console.warn('⚠ Error initializing AI client:', err.message);
+    return null;
   }
-} catch (err) {
-  console.warn('⚠ Error initializing OpenRouter client:', err.message);
 }
+
+// AIクライアント（動的初期化）
+let aiClient = initializeAIClient();
 
 /**
  * ユーザー残高を取得
@@ -138,8 +150,17 @@ async function updateTKUCRate() {
 
     let changePercent;
 
-    // AIに市場情報を渡してレート決定
-    if (openRouterClient) {
+    // AIに市場情報を渡してレート決定（レート制限対策）
+    // 毎回呼び出すと429エラーになるため、条件付きで実行
+    const shouldUseAI = (
+      marketData.buyPressure > 0 ||
+      marketData.sellPressure > 0 ||
+      chatActivity > 30 ||
+      recentTrades > 5 ||
+      top3Ratio > 0.5
+    );
+
+    if (aiClient && shouldUseAI) {
       try {
         console.log('🤖 AIにレート決定を依頼...');
 
@@ -166,7 +187,7 @@ async function updateTKUCRate() {
 次のレート変動率を数値のみで返してください（例: 2.5 または -1.8）:
 `;
 
-        const completion = await openRouterClient.chat.completions.create({
+        const completion = await aiClient.chat.completions.create({
           model: 'openai/gpt-oss-120b:free',
           messages: [{ role: 'user', content: aiPrompt }],
           max_tokens: 10,
@@ -180,7 +201,7 @@ async function updateTKUCRate() {
           changePercent = aiChange;
           console.log(`✅ AIレート決定: ${changePercent.toFixed(2)}% (市場情報反映)`);
         } else {
-          console.warn('⚠️ AIレスポンス無効、フォールバック使用');
+          console.warn('⚠️ AIレスポンス無効、プログラム計算を使用');
           changePercent = (Math.random() - 0.5) * 10; // フォールバック
         }
 
@@ -189,8 +210,12 @@ async function updateTKUCRate() {
         changePercent = (Math.random() - 0.5) * 10; // フォールバック
       }
     } else {
-      // AI利用不可の場合、プログラム計算
-      console.log('⚠️ AI利用不可、プログラム計算を使用');
+      // AI利用不可の場合、または市場が静かな場合はプログラム計算
+      if (!aiClient) {
+        console.log('⚠️ AI利用不可、プログラム計算を使用');
+      } else {
+        console.log('📊 市場静穏、プログラム計算を使用');
+      }
       changePercent = (Math.random() - 0.5) * 10; // -5% to +5%
     }
 
@@ -1045,14 +1070,17 @@ function formatOrderBook() {
 async function testAIConnection() {
   console.log('🧪 AI接続テスト開始...');
 
-  if (!openRouterClient) {
-    console.error('❌ OpenRouter client not initialized');
+  if (!aiClient) {
+    console.error('❌ AI client not initialized');
     return;
   }
 
   try {
-    const completion = await openRouterClient.chat.completions.create({
-      model: 'openai/gpt-oss-120b:free',
+    const aiConfig = loadJSON(FILES.AI_CONFIG) || { provider: 'openrouter' };
+    const model = aiConfig.model || 'openai/gpt-oss-120b:free';
+
+    const completion = await aiClient.chat.completions.create({
+      model: model,
       messages: [{ role: 'user', content: 'Say only: 42' }],
       max_tokens: 10,
     });

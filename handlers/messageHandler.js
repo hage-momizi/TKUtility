@@ -39,6 +39,7 @@ const commandHandlers = {
   'ai-stop': () => require('../commands/ai-stop'),
   'ai-start': () => require('../commands/ai-start'),
   'ai-change': () => require('../commands/ai-change'),
+  'ai-provider': () => require('../commands/ai-provider'),
   'ai-user-clear': () => require('../commands/ai-user-clear'),
   'tk-balance': () => require('../commands/tk-balance'),
   'tk-buy': () => require('../commands/tk-buy'),
