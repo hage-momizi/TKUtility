@@ -211,24 +211,28 @@ function transferTKUP(fromUserId, toUserId, amount) {
     return { success: false, message: '自分自身には送金できません。' };
   }
 
+  // 手数料計算（3%）
+  const fee = Math.ceil(amount * 0.03); // 切り上げ
+  const totalCost = amount + fee;
+
   const fromBalance = getUserBalance(fromUserId);
   const toBalance = getUserBalance(toUserId);
 
-  if (fromBalance.tkup < amount) {
+  if (fromBalance.tkup < totalCost) {
     return { success: false, message: 'TKUP残高が不足しています。' };
   }
 
   // 取引実行
-  fromBalance.tkup -= amount;
-  toBalance.tkup += amount; // TKUPを受取人のtkupに加算
+  fromBalance.tkup -= totalCost;
+  toBalance.tkup += amount; // 手数料を引いた金額を受取人へ
 
   saveUserBalance(fromUserId, fromBalance);
   saveUserBalance(toUserId, toBalance);
 
-  recordTransaction(fromUserId, 'transfer_tkup', { toUserId, amount });
+  recordTransaction(fromUserId, 'transfer_tkup', { toUserId, amount, fee });
   recordTransaction(toUserId, 'receive_tkup', { fromUserId, amount });
 
-  return { success: true, message: `${amount} TKUPを送金しました。` };
+  return { success: true, message: `${amount} TKUPを送金しました。（手数料: ${fee} TKUP）` };
 }
 
 /**
@@ -481,11 +485,12 @@ function generateRateChart(points = 50) {
     const index = Math.floor((i / (timeLabels - 1 || 1)) * totalIndex);
     const x = xScale(index);
     const date = new Date(timestamps[index]);
-    // 日本時間で表示（UTC+9）
-    const jstDate = new Date(date.getTime() + (9 * 60 * 60 * 1000));
-    const time = jstDate.toLocaleTimeString('ja-JP', {
+    // 日本時間で表示（タイムゾーンを考慮）
+    const time = date.toLocaleString('ja-JP', {
+      timeZone: 'Asia/Tokyo',
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
+      hour12: false
     });
     ctx.fillText(time, x, height - padding + 20);
   }
@@ -556,6 +561,56 @@ async function testRateUpdate() {
 }
 
 /**
+ * TKUPランキングを取得
+ * @param {number} limit - 上位表示数
+ * @returns {Array} ランキング配列
+ */
+function getTKUPRanking(limit = 10) {
+  const balances = loadJSON(FILES.USER_BALANCES);
+  const rankings = [];
+
+  for (const [userId, balance] of Object.entries(balances)) {
+    if (balance && typeof balance.tkup === 'number' && balance.tkup > 0) {
+      rankings.push({
+        userId,
+        tkup: balance.tkup,
+        tkuc: balance.tkuc || 0
+      });
+    }
+  }
+
+  // TKUPでソート（降順）
+  rankings.sort((a, b) => b.tkup - a.tkup);
+
+  return rankings.slice(0, limit);
+}
+
+/**
+ * TKUCランキングを取得
+ * @param {number} limit - 上位表示数
+ * @returns {Array} ランキング配列
+ */
+function getTKUCRanking(limit = 10) {
+  const balances = loadJSON(FILES.USER_BALANCES);
+  const rankings = [];
+
+  for (const [userId, balance] of Object.entries(balances)) {
+    if (balance && typeof balance.tkuc === 'number' && balance.tkuc > 0) {
+      rankings.push({
+        userId,
+        tkup: balance.tkup || 0,
+        tkuc: balance.tkuc
+      });
+    }
+  }
+
+  // TKUCでソート（降順）
+  rankings.sort((a, b) => b.tkuc - a.tkuc);
+
+  return rankings.slice(0, limit);
+}
+
+/**
  * AI接続テスト（デバッグ用）
  */
 async function testAIConnection() {
@@ -599,6 +654,8 @@ module.exports = {
   recordTransaction,
   formatBalance,
   generateRateChart,
+  getTKUPRanking,
+  getTKUCRanking,
   testRateUpdate, // デバッグ用
   testAIConnection, // デバッグ用
 };
