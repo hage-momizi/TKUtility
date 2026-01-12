@@ -188,8 +188,11 @@ async function updateTKUCRate() {
 次のレート変動率を数値のみで返してください（例: 2.5 または -1.8）:
 `;
 
+        const aiConfig = loadJSON(FILES.AI_CONFIG) || { provider: 'openrouter' };
+        const model = aiConfig.model || (aiConfig.provider === 'openrouter' ? 'openai/gpt-oss-120b:free' : 'sonar');
+
         const completion = await aiClient.chat.completions.create({
-          model: 'openai/gpt-oss-120b:free',
+          model: model,
           messages: [{ role: 'user', content: aiPrompt }],
           max_tokens: 10,
           temperature: 0.7,
