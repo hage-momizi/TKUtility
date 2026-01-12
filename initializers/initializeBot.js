@@ -127,6 +127,7 @@ async function sendLofiNotification(client, guildId, trackTitle) {
  * @param {Client} client - Discordクライアント
  */
 async function registerCommands(client) {
+  console.log('[DEBUG] registerCommands function called');
   const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
   try {
     // commands ディレクトリから自動でコマンドを読み込み
