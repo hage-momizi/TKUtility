@@ -133,6 +133,28 @@ function getTKUCRate() {
 }
 
 /**
+ * 動的上限を計算
+ * @param {object} marketData - 市場データ
+ * @returns {number} 動的上限レート
+ */
+function getDynamicUpperLimit(marketData) {
+  const baseLimit = 1000; // 基本上限
+  const userCount = marketData.userCount || 1;
+  const totalTKUP = marketData.totalTKUP || 0;
+
+  // ユーザー数に応じて上限を引き上げる
+  const userMultiplier = Math.min(5, Math.max(1, Math.sqrt(userCount) / 2));
+
+  // 総TKUP量に応じて上限を引き上げる
+  const tkupMultiplier = Math.min(3, Math.max(1, Math.log10(totalTKUP + 1) / 2));
+
+  const dynamicLimit = Math.floor(baseLimit * userMultiplier * tkupMultiplier);
+
+  // 最低1000、最高10000
+  return Math.min(10000, Math.max(1000, dynamicLimit));
+}
+
+/**
  * TKUCレートを更新（安定した変動）
  */
 async function updateTKUCRate() {
@@ -269,18 +291,38 @@ async function updateTKUCRate() {
     // 変動幅を制限（最大±5%）
     changePercent = Math.max(-5, Math.min(5, changePercent));
 
+    // 自動調整：上限接近時の追加下降圧力
+    const upperLimit = getDynamicUpperLimit(marketData);
+    const lowerLimit = 100;
+
+    if (currentRate > upperLimit * 0.8) { // 上限の80%を超えたら
+      const excessRatio = (currentRate - upperLimit * 0.8) / (upperLimit * 0.2);
+      const additionalPressure = Math.min(3, excessRatio * 3); // 最大-3%追加
+      changePercent -= additionalPressure;
+      console.log(`📈 上限接近調整: -${additionalPressure.toFixed(1)}%追加下降`);
+    }
+
+    // 下限接近時の追加上昇圧力
+    if (currentRate < lowerLimit * 1.5) { // 下限の150%未満なら
+      const deficitRatio = (lowerLimit * 1.5 - currentRate) / (lowerLimit * 0.5);
+      const additionalBoost = Math.min(2, deficitRatio * 2); // 最大+2%追加
+      changePercent += additionalBoost;
+      console.log(`📉 下限接近調整: +${additionalBoost.toFixed(1)}%追加上昇`);
+    }
+
     const newRate = currentRate * (1 + changePercent / 100);
 
     console.log('Rate calculation:', {
       current: currentRate,
       changePercent: changePercent.toFixed(2) + '%',
       newRate: newRate.toFixed(2),
+      upperLimit,
       buyPressure: marketData.buyPressure,
       sellPressure: marketData.sellPressure
     });
 
-    // レート範囲チェック（最低100 TKUP、最高1000 TKUP）
-    const clampedRate = Math.max(100, Math.min(1000, newRate));
+    // レート範囲チェック（動的上限・下限）
+    const clampedRate = Math.max(lowerLimit, Math.min(upperLimit, newRate));
 
     // レート更新
     rateData.currentRate = Math.round(clampedRate * 100) / 100; // 小数点2桁

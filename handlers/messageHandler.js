@@ -251,10 +251,17 @@ async function handleRevolutionFailure(message) {
     });
 
     if (hasRevolutionFailure) {
-      console.log('🚨 革命失敗検知！レート暴落イベント発動');
+      // レアイベント：3.5%の確率で暴落発生
+      const eventChance = 0.035; // 3.5%
 
-      // レート暴落処理
-      await triggerRateCrash();
+      if (Math.random() < eventChance) {
+        console.log('🚨 革命失敗検知！レート暴落イベント発動（レアイベント）');
+
+        // レート暴落処理
+        await triggerRateCrash();
+      } else {
+        console.log('🚨 革命失敗検知（イベント未発生）');
+      }
 
       // 通知メッセージ
       try {
