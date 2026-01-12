@@ -150,15 +150,11 @@ async function updateTKUCRate() {
 
     let changePercent;
 
-    // AIに市場情報を渡してレート決定（強化版）
-    // より積極的にAIを使用し、フォールバックを改善
+    // AIに市場情報を渡してレート決定（条件厳格化）
+    // 市場が十分に活性化している場合のみAIを使用
     const shouldUseAI = (
-      marketData.buyPressure > 0 ||
-      marketData.sellPressure > 0 ||
-      chatActivity > 20 ||
-      recentTrades > 2 ||
-      top3Ratio > 0.3 ||
-      Math.random() < 0.3 // 30%の確率で常にAI使用
+      (marketData.buyPressure > 1 || marketData.sellPressure > 1) &&
+      (chatActivity > 30 || recentTrades > 3 || top3Ratio > 0.4)
     );
 
     if (aiClient && shouldUseAI) {
@@ -185,7 +181,10 @@ async function updateTKUCRate() {
 - 取引活発度: ${recentTrades > 10 ? '高' : '低'}
 
 変動範囲: -5% から +5%
-次のレート変動率を数値のみで返してください（例: 2.5 または -1.8）:
+分析理由とレート変動率を簡潔に説明してください。
+
+例: "買い圧力が強く市場が活発なので+2.5%上昇を推奨"
+または "売り注文が多くチャットも落ち着いているため-1.8%下降を提案"
 `;
 
         const aiConfig = loadJSON(FILES.AI_CONFIG) || { provider: 'openrouter' };
