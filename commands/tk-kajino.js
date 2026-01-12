@@ -5,9 +5,9 @@ const {
   playSlot,
   playRoulette,
   startKakeGame,
-  joinKakeGame,
-  checkCasinoDailyBonus
+  joinKakeGame
 } = require('../modules/casinoService');
+const { checkCasinoDailyBonus } = require('../modules/economyService');
 
 module.exports = {
   command: new SlashCommandBuilder()
