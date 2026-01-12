@@ -63,6 +63,11 @@ function initializeChart() {
             scales: {
                 x: {
                     type: 'time',
+                    adapters: {
+                        date: {
+                            locale: 'ja'
+                        }
+                    },
                     time: {
                         unit: 'minute',
                         displayFormats: {
