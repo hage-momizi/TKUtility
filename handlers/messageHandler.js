@@ -1,4 +1,4 @@
-const { EmbedBuilder } = require('discord.js');
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { FILES, aiRateLimit, ADMIN_COMMANDS } = require('../config/constants');
 const { loadJSON, saveJSON } = require('../modules/fileStorage');
 const { streamAIResponse, extractUserInfoFromChat } = require('../modules/aiService');
