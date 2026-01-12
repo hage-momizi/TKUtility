@@ -283,7 +283,7 @@ async function handleRevolutionFailure(message) {
  */
 async function triggerRateCrash() {
   try {
-    const { loadJSON, saveJSON } = require('./fileStorage');
+    const { loadJSON, saveJSON } = require('../modules/fileStorage');
     const { FILES } = require('../config/constants');
 
     const rateData = loadJSON(FILES.TKUC_RATE);
