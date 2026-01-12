@@ -131,34 +131,35 @@ async function updateTKUCRate() {
     // 市場状況を取得
     const marketData = analyzeMarketCondition();
 
-    // 基本変動: -3% ～ +3%（より安定）
-    let changePercent = (Math.random() - 0.5) * 6; // -3% to +3%
+    // 基本変動: -5% ～ +5%（よりダイナミック）
+    let changePercent = (Math.random() - 0.5) * 10; // -5% to +5%
 
-    // 市場需給を考慮した調整
-    if (marketData.buyPressure > marketData.sellPressure) {
-      changePercent += 0.5; // 買い圧力で上昇
-    } else if (marketData.sellPressure > marketData.buyPressure) {
-      changePercent -= 0.5; // 売り圧力で下降
+    // 市場需給を考慮した調整（強化）
+    const pressureDiff = marketData.buyPressure - marketData.sellPressure;
+    if (pressureDiff > 0) {
+      changePercent += pressureDiff * 0.8; // 買い圧力で強く上昇
+    } else if (pressureDiff < 0) {
+      changePercent += pressureDiff * 0.8; // 売り圧力で強く下降
     }
 
-    // トレンド抑制（連続変動を防ぐ）
+    // トレンド抑制（緩和）
     const recentChanges = getRecentRateChanges();
     if (recentChanges.length >= 3) {
       const avgChange = recentChanges.reduce((a, b) => a + b, 0) / recentChanges.length;
-      if (Math.abs(avgChange) > 2) {
-        // トレンドが強い場合は逆方向に調整
-        changePercent -= avgChange * 0.3;
+      if (Math.abs(avgChange) > 3) {
+        // トレンドが非常に強い場合のみ抑制
+        changePercent -= avgChange * 0.1;
       }
     }
 
     // 最小変動保証
-    const minChange = 0.05; // 0.05%
+    const minChange = 0.1; // 0.1%
     if (Math.abs(changePercent) < minChange) {
       changePercent = changePercent >= 0 ? minChange : -minChange;
     }
 
-    // 変動幅を制限（最大±2%）
-    changePercent = Math.max(-2, Math.min(2, changePercent));
+    // 変動幅を制限（最大±5%）
+    changePercent = Math.max(-5, Math.min(5, changePercent));
 
     const newRate = currentRate * (1 + changePercent / 100);
 
