@@ -30,13 +30,23 @@ const commandHandlers = {
   'earthquake-history': () => require('../commands/earthquake-history'),
   'earthquake-watch': () => require('../commands/earthquake-watch'),
   'earthquake-settings': () => require('../commands/earthquake-settings'),
+  'earthquake-vc': () => require('../commands/earthquake-vc'),
+  'earthquake-vc-stop': () => require('../commands/earthquake-vc-stop'),
+  'earthquake-vc-history': () => require('../commands/earthquake-vc-history'),
   'law-search': () => require('../commands/law-search'),
   'ai-channel': () => require('../commands/ai-channel'),
   'ai-control': () => require('../commands/ai-control'),
   'ai-stop': () => require('../commands/ai-stop'),
   'ai-start': () => require('../commands/ai-start'),
   'ai-change': () => require('../commands/ai-change'),
-  'ai-user-clear': () => require('../commands/ai-user-clear')
+  'ai-user-clear': () => require('../commands/ai-user-clear'),
+  'tk-balance': () => require('../commands/tk-balance'),
+  'tk-buy': () => require('../commands/tk-buy'),
+  'tk-send-tkup': () => require('../commands/tk-send-tkup'),
+  'tk-send-tkuc': () => require('../commands/tk-send-tkuc'),
+  'tk-withdraw': () => require('../commands/tk-withdraw'),
+  'tk-market': () => require('../commands/tk-market'),
+  'tk-gamble': () => require('../commands/tk-gamble')
 };
 
 /**
