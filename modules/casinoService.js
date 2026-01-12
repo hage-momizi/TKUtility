@@ -156,13 +156,13 @@ function finishBlackjack(sessionId, reason) {
     winnings = 0;
   } else if (session.isBlackjack) {
     result = 'blackjack';
-    winnings = session.netBet * 1.5; // 3:2
+    winnings = session.netBet * 3; // 3倍
   } else if (dealerScore > 21) {
     result = 'win';
-    winnings = session.netBet; // 1:1
+    winnings = session.netBet * 1.5; // 1.5倍
   } else if (session.playerScore > dealerScore) {
     result = 'win';
-    winnings = session.netBet; // 1:1
+    winnings = session.netBet * 1.5; // 1.5倍
   } else if (session.playerScore === dealerScore) {
     result = 'tie';
     winnings = session.netBet * 0.5; // プッシュ
