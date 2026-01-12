@@ -27,7 +27,7 @@ try {
  */
 function getUserBalance(userId) {
   const balances = loadJSON(FILES.USER_BALANCES);
-  return balances[userId] || { tkup: 0, tkuc: 0, earnedTimestamps: [], lastPenalty: null };
+  return balances[userId] || { tkup: 0, tkuc: 0, earnedHistory: [], lastPenalty: null };
 }
 
 /**
@@ -65,21 +65,20 @@ function calculateTKUPGain(content, hasImage = false) {
 
 /**
  * TKUP獲得上限チェック（1時間1000TKUP）
- * @param {Array} timestamps - 獲得タイムスタンプ配列
+ * @param {Array} history - 獲得履歴配列 [{timestamp, amount}, ...]
  * @returns {boolean} 上限内かどうか
  */
-function checkTKUPHourlyLimit(timestamps) {
+function checkTKUPHourlyLimit(history) {
   const now = Date.now();
   const oneHour = 60 * 60 * 1000;
 
-  // 過去1時間のタイムスタンプをフィルタ
-  const recentTimestamps = timestamps.filter(ts => now - ts < oneHour);
+  // 過去1時間の獲得履歴をフィルタ
+  const recentHistory = history.filter(entry => now - entry.timestamp < oneHour);
 
   // 累計獲得量を計算
   let totalEarned = 0;
-  recentTimestamps.forEach(ts => {
-    // 簡易的に各タイムスタンプで平均獲得量を仮定（実際は詳細ログが必要）
-    totalEarned += 10; // 仮定値、後で改善
+  recentHistory.forEach(entry => {
+    totalEarned += entry.amount;
   });
 
   return totalEarned < 1000;
@@ -93,11 +92,11 @@ function checkTKUPHourlyLimit(timestamps) {
 function earnTKUP(userId, amount) {
   const balance = getUserBalance(userId);
   balance.tkup += amount;
-  balance.earnedTimestamps.push(Date.now());
+  balance.earnedHistory.push({ timestamp: Date.now(), amount });
 
-  // 古いタイムスタンプを削除（過去24時間以上前）
+  // 古い履歴を削除（過去24時間以上前）
   const oneDay = 24 * 60 * 60 * 1000;
-  balance.earnedTimestamps = balance.earnedTimestamps.filter(ts => Date.now() - ts < oneDay);
+  balance.earnedHistory = balance.earnedHistory.filter(entry => Date.now() - entry.timestamp < oneDay);
 
   saveUserBalance(userId, balance);
 }
@@ -511,21 +510,34 @@ function generateRateChart(points = 50) {
 function formatBalance(userId) {
   const balance = getUserBalance(userId);
 
-  // 上限残り時間を計算
+  // 過去1時間の獲得量を計算
   const now = Date.now();
   const oneHour = 60 * 60 * 1000;
-  const recentTimestamps = balance.earnedTimestamps.filter(ts => now - ts < oneHour);
+  const recentHistory = balance.earnedHistory.filter(entry => now - entry.timestamp < oneHour);
   let totalEarned = 0;
-  recentTimestamps.forEach(ts => {
-    // 簡易計算（実際の獲得ログが必要）
-    totalEarned += 10;
+  recentHistory.forEach(entry => {
+    totalEarned += entry.amount;
   });
+
   const remaining = Math.max(0, 1000 - totalEarned);
-  const resetTime = recentTimestamps.length > 0 ?
-    new Date(Math.min(...recentTimestamps) + oneHour).toLocaleTimeString('ja-JP') : 'N/A';
+
+  // リセットまでの残り時間を計算
+  let resetInfo = '上限未到達';
+  if (recentHistory.length > 0) {
+    const earliestTimestamp = Math.min(...recentHistory.map(entry => entry.timestamp));
+    const resetTimestamp = earliestTimestamp + oneHour;
+    const remainingMs = resetTimestamp - now;
+
+    if (remainingMs > 0) {
+      const remainingMinutes = Math.ceil(remainingMs / (60 * 1000));
+      resetInfo = `${remainingMinutes}分後`;
+    } else {
+      resetInfo = 'リセット済み';
+    }
+  }
 
   return `TKUP: ${balance.tkup} | TKUC: ${balance.tkuc.toFixed(2)}\n` +
-         `1時間上限残り: ${remaining} TKUP (リセット: ${resetTime})`;
+         `1時間上限残り: ${remaining} TKUP (${resetInfo})`;
 }
 
 module.exports = {
