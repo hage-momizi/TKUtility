@@ -5,7 +5,8 @@ const {
   playSlot,
   playRoulette,
   startKakeGame,
-  joinKakeGame
+  joinKakeGame,
+  checkCasinoDailyBonus
 } = require('../modules/casinoService');
 
 module.exports = {
@@ -67,6 +68,9 @@ module.exports = {
       const amount = interaction.options.getInteger('amount');
       const currency = interaction.options.getString('currency');
 
+      // カジノデイリーボーナスチェック
+      const bonusResult = checkCasinoDailyBonus(interaction.user.id);
+
       // 手数料表示
       const fee = Math.ceil(amount * 0.2);
       const embed = new EmbedBuilder()
@@ -75,6 +79,16 @@ module.exports = {
         .setFooter({
           text: `手数料: ${fee} ${currency} (20%) | ハウスエッジ: 約10%`
         });
+
+      // デイリーボーナス獲得時の通知
+      if (bonusResult.claimed) {
+        embed.addFields({
+          name: '🎁 デイリーボーナス獲得！',
+          value: `**+${bonusResult.amount} TKUP** をプレゼント！\n今日初めてのカジノプレイです！`,
+          inline: false
+        });
+        embed.setColor(0xFFD700); // 金色でハイライト
+      }
 
       let result;
 

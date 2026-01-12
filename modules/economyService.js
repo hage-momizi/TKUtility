@@ -124,6 +124,38 @@ function earnTKUP(userId, amount) {
 }
 
 /**
+ * カジノデイリーボーナスチェック・付与
+ * @param {string} userId - ユーザーID
+ * @returns {object} ボーナス情報 {claimed: boolean, amount: number}
+ */
+function checkCasinoDailyBonus(userId) {
+  const balance = getUserBalance(userId);
+  const now = new Date();
+  const today = now.toISOString().split('T')[0]; // YYYY-MM-DD形式
+
+  // 今日初めてのカジノプレイかをチェック
+  if (balance.lastCasinoPlay !== today) {
+    // デイリーボーナス付与
+    const bonusAmount = 500;
+    balance.tkup += bonusAmount;
+    balance.lastCasinoPlay = today;
+
+    saveUserBalance(userId, balance);
+
+    recordTransaction(userId, 'casino_daily_bonus', {
+      amount: bonusAmount,
+      date: today
+    });
+
+    console.log(`🎰 カジノデイリーボーナス: ${userId} (+${bonusAmount} TKUP)`);
+
+    return { claimed: true, amount: bonusAmount };
+  }
+
+  return { claimed: false, amount: 0 };
+}
+
+/**
  * TKUCレートを取得
  * @returns {object} レートデータ
  */
