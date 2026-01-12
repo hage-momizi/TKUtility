@@ -26,7 +26,7 @@ module.exports = {
             { name: '手数料', value: '10%', inline: true }
           )
           .setColor(0x00ff00)
-          .setFooter({ text: '出金処理は手動で行われます' })
+          .setFooter({ text: '出金処理完了' })
           .setTimestamp();
 
         await interaction.reply({ embeds: [embed] });

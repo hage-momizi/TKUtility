@@ -131,15 +131,75 @@ async function updateTKUCRate() {
     // 市場状況を取得
     const marketData = analyzeMarketCondition();
 
-    // 基本変動: -5% ～ +5%（よりダイナミック）
-    let changePercent = (Math.random() - 0.5) * 10; // -5% to +5%
+    // 新しい要因を取得
+    const chatActivity = analyzeChatActivity(); // チャット盛り上がり度
+    const top3Ratio = analyzeTop3Ratio(); // 上位3人の保有割合
+    const recentTrades = getRecentTradeCount(); // 最近の取引数
 
-    // 市場需給を考慮した調整（強化）
+    let changePercent;
+
+    // AIに市場情報を渡してレート決定
+    if (openRouterClient) {
+      try {
+        console.log('🤖 AIにレート決定を依頼...');
+
+        const aiPrompt = `
+現在のTKUCレート: ${currentRate} TKUP
+
+市場状況:
+- 買い注文数: ${marketData.buyPressure}
+- 売り注文数: ${marketData.sellPressure}
+- 総TKUP保有: ${marketData.totalTKUP}
+- 総TKUC保有: ${marketData.totalTKUC}
+- チャット盛り上がり度: ${chatActivity.toFixed(1)}/100
+- 上位3人保有割合: ${(top3Ratio * 100).toFixed(1)}%
+- 最近の取引数: ${recentTrades}件
+
+レート変動要因:
+- 買い圧力: ${marketData.buyPressure > marketData.sellPressure ? '強' : '弱'}
+- 売り圧力: ${marketData.sellPressure > marketData.buyPressure ? '強' : '弱'}
+- チャット活性: ${chatActivity > 50 ? '高' : '低'}
+- 保有集中度: ${top3Ratio > 0.7 ? '高' : '低'}
+- 取引活発度: ${recentTrades > 10 ? '高' : '低'}
+
+変動範囲: -5% から +5%
+次のレート変動率を数値のみで返してください（例: 2.5 または -1.8）:
+`;
+
+        const completion = await openRouterClient.chat.completions.create({
+          model: 'openai/gpt-oss-120b:free',
+          messages: [{ role: 'user', content: aiPrompt }],
+          max_tokens: 10,
+          temperature: 0.7,
+        });
+
+        const aiResponse = completion.choices[0].message.content.trim();
+        const aiChange = parseFloat(aiResponse.replace(/[^\d.-]/g, ''));
+
+        if (!isNaN(aiChange) && Math.abs(aiChange) <= 5) {
+          changePercent = aiChange;
+          console.log(`✅ AIレート決定: ${changePercent.toFixed(2)}% (市場情報反映)`);
+        } else {
+          console.warn('⚠️ AIレスポンス無効、フォールバック使用');
+          changePercent = (Math.random() - 0.5) * 10; // フォールバック
+        }
+
+      } catch (aiError) {
+        console.warn('⚠️ AIレート決定失敗、プログラム計算を使用:', aiError.message);
+        changePercent = (Math.random() - 0.5) * 10; // フォールバック
+      }
+    } else {
+      // AI利用不可の場合、プログラム計算
+      console.log('⚠️ AI利用不可、プログラム計算を使用');
+      changePercent = (Math.random() - 0.5) * 10; // -5% to +5%
+    }
+
+    // 追加の市場調整（AI決定を補完）
     const pressureDiff = marketData.buyPressure - marketData.sellPressure;
     if (pressureDiff > 0) {
-      changePercent += pressureDiff * 0.8; // 買い圧力で強く上昇
+      changePercent += Math.min(0.5, pressureDiff * 0.1);
     } else if (pressureDiff < 0) {
-      changePercent += pressureDiff * 0.8; // 売り圧力で強く下降
+      changePercent += Math.max(-0.5, pressureDiff * 0.1);
     }
 
     // トレンド抑制（緩和）
@@ -147,13 +207,12 @@ async function updateTKUCRate() {
     if (recentChanges.length >= 3) {
       const avgChange = recentChanges.reduce((a, b) => a + b, 0) / recentChanges.length;
       if (Math.abs(avgChange) > 3) {
-        // トレンドが非常に強い場合のみ抑制
-        changePercent -= avgChange * 0.1;
+        changePercent -= avgChange * 0.05;
       }
     }
 
     // 最小変動保証
-    const minChange = 0.1; // 0.1%
+    const minChange = 0.05; // 0.05%
     if (Math.abs(changePercent) < minChange) {
       changePercent = changePercent >= 0 ? minChange : -minChange;
     }
@@ -1009,6 +1068,95 @@ async function testAIConnection() {
 }
 
 /**
+ * チャット盛り上がり度を分析
+ * @returns {number} 盛り上がり度スコア（0-100）
+ */
+function analyzeChatActivity() {
+  const balances = loadJSON(FILES.USER_BALANCES);
+  const now = Date.now();
+  const recentTime = 10 * 60 * 1000; // 過去10分
+
+  let totalRecentEarned = 0;
+  let activeUsers = 0;
+
+  for (const [userId, balance] of Object.entries(balances)) {
+    if (balance && balance.earnedHistory) {
+      const recentHistory = balance.earnedHistory.filter(entry =>
+        now - entry.timestamp < recentTime
+      );
+
+      const recentEarned = recentHistory.reduce((sum, entry) => sum + entry.amount, 0);
+      totalRecentEarned += recentEarned;
+
+      if (recentEarned > 0) {
+        activeUsers++;
+      }
+    }
+  }
+
+  // 盛り上がり度を計算（0-100）
+  const activityScore = Math.min(100, (totalRecentEarned / 50) * (activeUsers / 3) * 100);
+  return activityScore;
+}
+
+/**
+ * 上位3人の保有割合を分析
+ * @returns {number} 上位3人の割合（0-1）
+ */
+function analyzeTop3Ratio() {
+  const balances = loadJSON(FILES.USER_BALANCES);
+  const rankings = [];
+
+  for (const [userId, balance] of Object.entries(balances)) {
+    if (balance && (balance.tkup > 0 || balance.tkuc > 0)) {
+      rankings.push({
+        userId,
+        tkup: balance.tkup || 0,
+        tkuc: balance.tkuc || 0
+      });
+    }
+  }
+
+  if (rankings.length === 0) return 0;
+
+  // TKUP + TKUC換算でソート
+  rankings.sort((a, b) => (b.tkup + b.tkuc * 500) - (a.tkup + a.tkuc * 500));
+
+  const top3 = rankings.slice(0, 3);
+  const totalTop3 = top3.reduce((sum, user) => sum + user.tkup + (user.tkuc * 500), 0);
+  const totalAll = rankings.reduce((sum, user) => sum + user.tkup + (user.tkuc * 500), 0);
+
+  return totalAll > 0 ? totalTop3 / totalAll : 0;
+}
+
+/**
+ * 最近の取引数をカウント
+ * @returns {number} 過去10分の取引数
+ */
+function getRecentTradeCount() {
+  const history = loadJSON(FILES.TRANSACTION_HISTORY);
+  const now = Date.now();
+  const recentTime = 10 * 60 * 1000; // 過去10分
+
+  let tradeCount = 0;
+
+  for (const [userId, userHistory] of Object.entries(history)) {
+    if (userHistory) {
+      for (const [type, transactions] of Object.entries(userHistory)) {
+        if (type.includes('market_')) {
+          const recentTrades = transactions.filter(tx =>
+            now - tx.timestamp < recentTime
+          );
+          tradeCount += recentTrades.length;
+        }
+      }
+    }
+  }
+
+  return tradeCount;
+}
+
+/**
  * 月末リセット処理
  * 全ユーザーのTKUPとTKUCを0にリセット
  */
@@ -1052,6 +1200,9 @@ module.exports = {
   getTKUCRanking,
   resetAllBalances,
   formatOrderBook,
+  placeBuyOrder,
+  placeSellOrder,
+  cancelOrder,
   testRateUpdate, // デバッグ用
   testAIConnection, // デバッグ用
 };
