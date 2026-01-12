@@ -203,7 +203,7 @@ function transferTKUP(fromUserId, toUserId, amount) {
 
   // 取引実行
   fromBalance.tkup -= amount;
-  toBalance.tkuc += amount; // TKUPなのでtkucではなくtkup
+  toBalance.tkup += amount; // TKUPを受取人のtkupに加算
 
   saveUserBalance(fromUserId, fromBalance);
   saveUserBalance(toUserId, toBalance);
@@ -292,7 +292,7 @@ function gambleTKUC(userId, betAmount) {
 
   if (won) {
     balance.tkuc += betAmount; // ベット額獲得
-    const result = { success: true, message: `🎉 勝利！ ${betAmount * 2} TKUCになりました！`, won: betAmount };
+    const result = { success: true, message: `🎉 勝利！ ${betAmount * 2} TKUCになりました！`, won: true };
     recordTransaction(userId, 'gamble_win', { betAmount, won: betAmount });
     saveUserBalance(userId, balance);
     return result;
