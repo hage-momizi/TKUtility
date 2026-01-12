@@ -141,8 +141,16 @@ async function registerCommands(client) {
       }
     }
 
-    await rest.put(Routes.applicationCommands(client.user.id), { body: commands });
-    console.log('Slash commands registered.');
+    // 各ギルドにコマンドを登録（ギルドコマンドとして即時反映）
+    for (const [guildId] of client.guilds.cache) {
+      try {
+        await rest.put(Routes.applicationGuildCommands(client.user.id, guildId), { body: commands });
+        console.log(`Slash commands registered for guild: ${guildId}`);
+      } catch (guildError) {
+        console.error(`Failed to register commands for guild ${guildId}:`, guildError);
+      }
+    }
+    console.log('Slash commands registered for all guilds.');
   } catch (error) {
     console.error(error);
   }
