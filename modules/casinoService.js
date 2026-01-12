@@ -26,9 +26,9 @@ function startBlackjack(userId, betAmount, currency) {
     return { success: false, message: `${currency}残高が不足しています。` };
   }
 
-  // 手数料計算（100%みかじめ料）
-  const fee = betAmount; // 100%手数料
-  const netBet = 0; // 実質ベットなし
+  // 手数料計算（10%みかじめ料）
+  const fee = Math.ceil(betAmount * 0.1);
+  const netBet = betAmount - fee;
 
   // ゲーム開始
   const playerCards = dealCards(2);
