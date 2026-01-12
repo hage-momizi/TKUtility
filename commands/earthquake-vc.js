@@ -3,7 +3,7 @@ const { saveGuildConfig, getGuildConfig } = require('../modules/earthquakeServic
 
 const command = new SlashCommandBuilder()
   .setName('earthquake-vc')
-  .setDescription('地震情報の音声読み上げを有効/無効にします（管理者専用）')
+  .setDescription('地震情報の音声読み上げを有効/無効にします')
   .addChannelOption(option =>
     option.setName('channel')
       .setDescription('読み上げを行うボイスチャンネル')
@@ -17,14 +17,6 @@ const command = new SlashCommandBuilder()
   );
 
 async function execute(interaction) {
-  // 管理者権限チェック
-  if (!interaction.member.permissions.has('Administrator')) {
-    await interaction.reply({
-      content: 'このコマンドは管理者専用です。',
-      ephemeral: true
-    });
-    return;
-  }
 
   const channel = interaction.options.getChannel('channel');
   const enabled = interaction.options.getBoolean('enabled');
