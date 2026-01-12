@@ -27,7 +27,17 @@ try {
  */
 function getUserBalance(userId) {
   const balances = loadJSON(FILES.USER_BALANCES);
-  return balances[userId] || { tkup: 0, tkuc: 0, earnedHistory: [], lastPenalty: null };
+  const balance = balances[userId] || { tkup: 0, tkuc: 0, earnedHistory: [], lastPenalty: null };
+
+  // データ構造の互換性を確保（古いデータ対応）
+  if (!balance.earnedHistory) {
+    balance.earnedHistory = [];
+  }
+  if (!balance.earnedTimestamps) {
+    balance.earnedTimestamps = [];
+  }
+
+  return balance;
 }
 
 /**
@@ -111,42 +121,34 @@ function getTKUCRate() {
 }
 
 /**
- * TKUCレートを更新（AI使用）
+ * TKUCレートを更新（プログラム計算）
  */
 async function updateTKUCRate() {
   try {
-    if (!openRouterClient) {
-      console.warn('OpenRouter client not available, skipping rate update');
-      return;
-    }
-
     const currentRate = getTKUCRate();
     const rateData = loadJSON(FILES.TKUC_RATE);
 
-    // AIで変動を生成
-    const prompt = `現在のTKUCレートは${currentRate} TKUPです。-10%から+10%の範囲でランダムに変動させてください。最小変動は±0.1%です。新しいレートを数値のみで返してください。`;
+    // プログラムで変動を生成（-10% ～ +10% のランダム変動）
+    const changePercent = (Math.random() - 0.5) * 20; // -10% to +10%
+    const minChange = 0.1; // 最小変動0.1%
 
-    const completion = await openRouterClient.chat.completions.create({
-      model: 'openai/gpt-oss-120b:free',
-      messages: [{ role: 'user', content: prompt }],
-      max_tokens: 50,
+    // 変動が小さすぎる場合は調整
+    const adjustedChange = Math.abs(changePercent) < minChange ?
+      (changePercent >= 0 ? minChange : -minChange) : changePercent;
+
+    const newRate = currentRate * (1 + adjustedChange / 100);
+
+    console.log('Rate calculation:', {
+      current: currentRate,
+      changePercent: adjustedChange.toFixed(2) + '%',
+      newRate: newRate.toFixed(2)
     });
 
-    const response = completion.choices[0].message.content.trim();
-    const newRate = parseFloat(response);
-
-    if (isNaN(newRate) || newRate <= 0) {
-      throw new Error('Invalid rate generated');
-    }
-
-    // 変動範囲チェック
-    const changePercent = ((newRate - currentRate) / currentRate) * 100;
-    if (Math.abs(changePercent) > 10) {
-      throw new Error('Rate change too large');
-    }
+    // レート範囲チェック（最低100 TKUP、最高2000 TKUP）
+    const clampedRate = Math.max(100, Math.min(2000, newRate));
 
     // レート更新
-    rateData.currentRate = Math.round(newRate * 100) / 100; // 小数点2桁
+    rateData.currentRate = Math.round(clampedRate * 100) / 100; // 小数点2桁
     rateData.lastUpdate = Date.now();
     rateData.history = rateData.history || [];
     rateData.history.push({ timestamp: Date.now(), rate: rateData.currentRate });
@@ -157,10 +159,10 @@ async function updateTKUCRate() {
     }
 
     saveJSON(FILES.TKUC_RATE, rateData);
-    console.log(`TKUCレート更新: ${currentRate} → ${rateData.currentRate} TKUP`);
+    console.log(`✅ TKUCレート更新成功: ${currentRate} → ${rateData.currentRate} TKUP (+${adjustedChange.toFixed(2)}%)`);
 
   } catch (error) {
-    console.error('TKUCレート更新エラー:', error.message);
+    console.error('❌ TKUCレート更新エラー:', error.message);
     // フォールバック: 前回レート維持
   }
 }
@@ -470,14 +472,18 @@ function generateRateChart(points = 50) {
     ctx.fillText(rate.toFixed(1), padding - 10, y + 5);
   }
 
-  // X軸ラベル（時間）
+  // X軸ラベル（時間）- 日本時間表示
   ctx.textAlign = 'center';
+  ctx.font = '12px "MS Gothic", "Yu Gothic", "Meiryo", Arial, sans-serif';
   const timeLabels = Math.min(5, Math.max(data.length, 1));
   for (let i = 0; i < timeLabels; i++) {
     const totalIndex = Math.max(data.length - 1, 1);
     const index = Math.floor((i / (timeLabels - 1 || 1)) * totalIndex);
     const x = xScale(index);
-    const time = new Date(timestamps[index]).toLocaleTimeString('ja-JP', {
+    const date = new Date(timestamps[index]);
+    // 日本時間で表示（UTC+9）
+    const jstDate = new Date(date.getTime() + (9 * 60 * 60 * 1000));
+    const time = jstDate.toLocaleTimeString('ja-JP', {
       hour: '2-digit',
       minute: '2-digit'
     });
@@ -485,7 +491,7 @@ function generateRateChart(points = 50) {
   }
 
   // タイトル
-  ctx.font = '18px Arial';
+  ctx.font = '18px "MS Gothic", "Yu Gothic", "Meiryo", Arial, sans-serif';
   ctx.textAlign = 'center';
   ctx.fillText('TKUCレート推移', width / 2, 30);
 
@@ -495,7 +501,7 @@ function generateRateChart(points = 50) {
   const change = currentRate - prevRate;
   const changePercent = ((change / prevRate) * 100);
 
-  ctx.font = '14px Arial';
+  ctx.font = '14px "MS Gothic", "Yu Gothic", "Meiryo", Arial, sans-serif';
   ctx.fillText(`現在: ${currentRate} TKUP (${changePercent >= 0 ? '+' : ''}${changePercent.toFixed(2)}%)`,
                width / 2, height - 10);
 
@@ -540,6 +546,43 @@ function formatBalance(userId) {
          `1時間上限残り: ${remaining} TKUP (${resetInfo})`;
 }
 
+/**
+ * レート更新を手動テスト（デバッグ用）
+ */
+async function testRateUpdate() {
+  console.log('🧪 レート更新テスト開始...');
+  await updateTKUCRate();
+  console.log('🧪 テスト完了');
+}
+
+/**
+ * AI接続テスト（デバッグ用）
+ */
+async function testAIConnection() {
+  console.log('🧪 AI接続テスト開始...');
+
+  if (!openRouterClient) {
+    console.error('❌ OpenRouter client not initialized');
+    return;
+  }
+
+  try {
+    const completion = await openRouterClient.chat.completions.create({
+      model: 'openai/gpt-oss-120b:free',
+      messages: [{ role: 'user', content: 'Say only: 42' }],
+      max_tokens: 10,
+    });
+
+    const response = completion.choices[0].message.content.trim();
+    console.log('✅ AI Response:', response);
+
+  } catch (error) {
+    console.error('❌ AI Test Error:', error.message);
+  }
+
+  console.log('🧪 AI接続テスト完了');
+}
+
 module.exports = {
   getUserBalance,
   saveUserBalance,
@@ -556,4 +599,6 @@ module.exports = {
   recordTransaction,
   formatBalance,
   generateRateChart,
+  testRateUpdate, // デバッグ用
+  testAIConnection, // デバッグ用
 };

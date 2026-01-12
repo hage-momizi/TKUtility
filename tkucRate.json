@@ -1,10 +1,18 @@
 {
-  "currentRate": 500,
-  "lastUpdate": 1768197151178,
+  "currentRate": 449.14,
+  "lastUpdate": 1768203188913,
   "history": [
     {
       "timestamp": 1768197151178,
       "rate": 500
+    },
+    {
+      "timestamp": 1768203048543,
+      "rate": 476.06
+    },
+    {
+      "timestamp": 1768203188913,
+      "rate": 449.14
     }
   ]
 }
