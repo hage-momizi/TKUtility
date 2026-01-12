@@ -7,7 +7,7 @@ const { handleAIChat, handlePinUpdate, handleInteraction, handleTKUPGain } = req
 const { DISCORD_INTENTS } = require('./config/constants');
 
 // Discord WebSocket設定
-DefaultWebSocketManagerOptions.identifyProperties.browser = 'Discord iOS'ions.identifyProperties.browser = 'Discord iOS';
+DefaultWebSocketManagerOptions.identifyProperties.browser = 'Discord iOS';
 
 // Discordクライアント作成
 const client = new Client({
