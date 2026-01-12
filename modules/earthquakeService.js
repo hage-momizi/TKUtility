@@ -355,7 +355,7 @@ async function handleRealtimeData(client, data) {
     const config = loadJSON(earthquakeConfigFile);
 
     for (const [guildId, guildConfig] of Object.entries(config)) {
-      // テキストチャンネルへの送信（EEWの場合のみ、または地震情報も送信したい場合）
+      // テキストチャンネルへの送信（EEWの場合のみ）
       if (data.code === 556 && guildConfig.eewChannelId && guildConfig.watchEnabled !== false) {
         try {
           const channel = await client.channels.fetch(guildConfig.eewChannelId);
@@ -369,13 +369,9 @@ async function handleRealtimeData(client, data) {
         }
       }
 
-      // 音声読み上げ
-      if (guildConfig.vcChannelId && guildConfig.vcEnabled) {
+      // 音声読み上げ（vc参加中の場合のみ）
+      if (voiceConnections.has(guildId)) {
         try {
-          // vc参加チェック
-          if (!voiceConnections.has(guildId)) {
-            joinVoiceChannelForGuild(client, guildId, guildConfig.vcChannelId);
-          }
           const ttsMessage = createTTSMessage(data);
           if (ttsMessage) {
             const filePath = await createTTSFile(ttsMessage);

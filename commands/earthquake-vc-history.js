@@ -16,12 +16,11 @@ async function execute(interaction) {
   const count = interaction.options.getInteger('count') || 10;
   const guildId = interaction.guild.id;
 
-  // 設定確認
-  const config = getGuildConfig(guildId);
-  if (!config.vcChannelId) {
+  // 設定確認（vc参加中かチェック）
+  if (!voiceConnections.has(guildId)) {
     const embed = new EmbedBuilder()
-      .setTitle('⚠️ 設定が必要')
-      .setDescription('まず `/earthquake-vc` でボイスチャンネルを設定してください。')
+      .setTitle('⚠️ 読み上げ開始が必要')
+      .setDescription('まず `/earthquake-vc-start` で音声読み上げを開始してください。')
       .setColor(0xffa500);
     await interaction.reply({ embeds: [embed], ephemeral: true });
     return;

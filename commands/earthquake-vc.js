@@ -1,51 +1,55 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
-const { saveGuildConfig, getGuildConfig } = require('../modules/earthquakeService');
+const { joinVoiceChannelForGuild, leaveVoiceChannel, voiceConnections } = require('../modules/earthquakeService');
 
 const command = new SlashCommandBuilder()
-  .setName('earthquake-vc')
-  .setDescription('地震情報の音声読み上げを有効/無効にします')
-  .addChannelOption(option =>
-    option.setName('channel')
-      .setDescription('読み上げを行うボイスチャンネル')
-      .setRequired(true)
-      .addChannelTypes(2) // GUILD_VOICE
-  )
-  .addBooleanOption(option =>
-    option.setName('enabled')
-      .setDescription('読み上げを有効にするかどうか')
-      .setRequired(true)
-  );
+  .setName('earthquake-vc-start')
+  .setDescription('地震情報の音声読み上げを開始します（実行者がいるボイスチャンネルに自動参加）');
 
 async function execute(interaction) {
-
-  const channel = interaction.options.getChannel('channel');
-  const enabled = interaction.options.getBoolean('enabled');
   const guildId = interaction.guild.id;
+  const member = interaction.member;
+
+  // ユーザーがボイスチャンネルにいるかチェック
+  if (!member.voice.channel) {
+    const embed = new EmbedBuilder()
+      .setTitle('⚠️ ボイスチャンネルに参加してください')
+      .setDescription('まずボイスチャンネルに参加してからコマンドを実行してください。')
+      .setColor(0xffa500);
+    await interaction.reply({ embeds: [embed], ephemeral: true });
+    return;
+  }
+
+  const voiceChannel = member.voice.channel;
 
   try {
-    const currentConfig = getGuildConfig(guildId);
+    // すでに接続中の場合は何もしない
+    if (voiceConnections.has(guildId)) {
+      const embed = new EmbedBuilder()
+        .setTitle('⚠️ すでに読み上げ中')
+        .setDescription('地震情報の音声読み上げはすでに開始されています。')
+        .setColor(0xffa500);
+      await interaction.reply({ embeds: [embed], ephemeral: true });
+      return;
+    }
 
-    // 設定保存
-    saveGuildConfig(guildId, {
-      vcChannelId: channel.id,
-      vcEnabled: enabled
-    });
+    // ボイスチャンネルに参加
+    joinVoiceChannelForGuild(interaction.client, guildId, voiceChannel.id);
 
     const embed = new EmbedBuilder()
-      .setTitle(enabled ? '✅ 音声読み上げ有効' : '⏸️ 音声読み上げ停止')
-      .setDescription(`地震情報の音声読み上げを${enabled ? '有効' : '無効'}にしました。`)
+      .setTitle('✅ 音声読み上げ開始')
+      .setDescription(`<#${voiceChannel.id}> で地震情報の音声読み上げを開始しました。`)
       .addFields(
-        { name: 'ボイスチャンネル', value: `<#${channel.id}>`, inline: true },
-        { name: '読み上げ状態', value: enabled ? '有効' : '無効', inline: true }
+        { name: 'ボイスチャンネル', value: `<#${voiceChannel.id}>`, inline: true },
+        { name: '状態', value: '読み上げ中', inline: true }
       )
-      .setColor(enabled ? 0x00ff00 : 0xffa500);
+      .setColor(0x00ff00);
 
     await interaction.reply({ embeds: [embed] });
   } catch (error) {
-    console.error('Error in earthquake-vc command:', error);
+    console.error('Error in earthquake-vc-start command:', error);
     const embed = new EmbedBuilder()
       .setTitle('❌ エラー')
-      .setDescription('設定の保存に失敗しました。')
+      .setDescription('音声読み上げの開始に失敗しました。')
       .setColor(0xff0000);
     await interaction.reply({ embeds: [embed], ephemeral: true });
   }
