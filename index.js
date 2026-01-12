@@ -41,12 +41,14 @@ const aiControlCommand = require('./commands/ai-control');
 const aiStopCommand = require('./commands/ai-stop');
 const aiStartCommand = require('./commands/ai-start');
 const aiChangeCommand = require('./commands/ai-change');
+const aiUserClearCommand = require('./commands/ai-user-clear');
 
 const pinsFile = path.join(__dirname, 'pins.json');
 const newsConfigFile = path.join(__dirname, 'newsconfig.json');
 const musicSettingsFile = path.join(__dirname, 'musicsettings.json');
 const aiChannelFile = path.join(__dirname, 'aichannel.json');
 const aiChatFile = path.join(__dirname, 'aichat.json');
+const aiUserFile = path.join(__dirname, 'aiuser.json');
 
 // AIレートリミット管理: userId -> [timestamp1, timestamp2, ...]
 const aiRateLimit = new Map();
@@ -319,6 +321,7 @@ async function registerCommands(client) {
       aiStopCommand.command.toJSON(),
       aiStartCommand.command.toJSON(),
       aiChangeCommand.command.toJSON(),
+      aiUserClearCommand.command.toJSON(),
     ];
     await rest.put(Routes.applicationCommands(client.user.id), { body: commands });
     console.log('Slash commands registered.');
@@ -386,7 +389,8 @@ const commandHandlers = {
   'ai-control': aiControlCommand,
   'ai-stop': aiStopCommand,
   'ai-start': aiStartCommand,
-  'ai-change': aiChangeCommand
+  'ai-change': aiChangeCommand,
+  'ai-user-clear': aiUserClearCommand
 };
 
 // 管理者専用コマンド
@@ -407,6 +411,76 @@ async function getConversationStarter(message) {
     }
   }
   return current.author.id;
+}
+
+/**
+ * チャットからユーザー情報を抽出
+ * @param {string} guildId - ギルドID
+ * @param {string} userId - ユーザーID
+ * @param {Array} conversationHistory - 会話履歴
+ */
+async function extractUserInfoFromChat(guildId, userId, conversationHistory) {
+  try {
+    // 会話履歴が十分にある場合のみ抽出
+    if (conversationHistory.length < 4) return; // 最低2往復
+
+    const chatText = conversationHistory.map(item => `${item.role}: ${item.content}`).join('\n');
+
+    // AIにユーザー情報を抽出させる
+    const extractionPrompt = `以下の会話から、ユーザーについての情報を抽出してください。
+
+会話:
+${chatText}
+
+以下の情報をJSON形式で抽出してください（該当しない場合はnull）:
+{
+  "skills": "ユーザーの特技や得意なこと",
+  "personality": "ユーザーの性格や特徴",
+  "interests": "ユーザーの興味や趣味",
+  "other": "その他の情報"
+}
+
+該当情報がない場合はnullを入れてください。JSONのみ出力。`;
+
+    const completion = await openRouterClient.chat.completions.create({
+      model: 'openai/gpt-oss-120b:free',
+      messages: [
+        { role: 'system', content: 'あなたは会話分析アシスタントです。ユーザーの情報を正確に抽出してください。' },
+        { role: 'user', content: extractionPrompt }
+      ],
+      max_tokens: 300,
+      temperature: 0.1
+    });
+
+    const result = completion.choices[0].message.content.trim();
+    let extractedInfo;
+    try {
+      extractedInfo = JSON.parse(result);
+    } catch {
+      return; // JSONパース失敗時は何もしない
+    }
+
+    // ユーザー情報を更新
+    const userData = loadJSON(aiUserFile);
+    const guildUserKey = `${guildId}.${userId}`;
+    if (!userData[guildUserKey]) {
+      userData[guildUserKey] = {};
+    }
+
+    if (extractedInfo.skills && !userData[guildUserKey].skills) {
+      userData[guildUserKey].skills = extractedInfo.skills;
+    }
+    if (extractedInfo.personality && !userData[guildUserKey].personality) {
+      userData[guildUserKey].personality = extractedInfo.personality;
+    }
+    if (extractedInfo.interests && !userData[guildUserKey].interests) {
+      userData[guildUserKey].interests = extractedInfo.interests;
+    }
+
+    saveJSON(aiUserFile, userData);
+  } catch (error) {
+    console.error('User info extraction error:', error);
+  }
 }
 
 /**
@@ -476,9 +550,33 @@ async function handleAIChat(message) {
     // 初期メッセージ送信
     const responseMessage = await message.reply('<a:telegramthink:1459933307725676658> 考え中...');
 
+    // ユーザー情報を取得
+    const userData = loadJSON(aiUserFile);
+    const guildUserKey = `${message.guild.id}.${message.author.id}`;
+    let userInfo = userData[guildUserKey] || {};
+
+    // ユーザー情報が不足している場合は取得
+    if (!userInfo.username || !userInfo.nickname || !userInfo.guildNickname) {
+      userInfo.username = message.author.username;
+      userInfo.nickname = message.author.displayName;
+      userInfo.guildNickname = message.member?.displayName || message.author.displayName;
+      userData[guildUserKey] = userInfo;
+      saveJSON(aiUserFile, userData);
+    }
+
+    // ユーザー情報を含むコントロールメッセージを作成
+    let enhancedControl = guildConfig.control || '';
+    enhancedControl += `\n\nユーザー情報:\n- ユーザー名: ${userInfo.username}\n- ニックネーム: ${userInfo.nickname}\n- サーバー内ニックネーム: ${userInfo.guildNickname}`;
+    if (userInfo.skills) {
+      enhancedControl += `\n- 特技: ${userInfo.skills}`;
+    }
+    if (userInfo.personality) {
+      enhancedControl += `\n- 性格: ${userInfo.personality}`;
+    }
+
     let fullResponse = '';
     let lastEditTime = Date.now();
-    const generator = streamAIResponse(message.content, guildConfig.control, guildConfig.provider || 'openrouter', conversationHistory);
+    const generator = streamAIResponse(message.content, enhancedControl, guildConfig.provider || 'openrouter', conversationHistory);
 
     for await (const chunk of generator) {
       fullResponse += chunk;
@@ -504,6 +602,11 @@ async function handleAIChat(message) {
 
     chatData[userKey] = conversationHistory;
     saveJSON(aiChatFile, chatData);
+
+    // チャットからユーザー情報を抽出（非同期で実行）
+    extractUserInfoFromChat(message.guild.id, message.author.id, conversationHistory).catch(err => {
+      console.error('User info extraction error:', err);
+    });
   } catch (error) {
     console.error('AI chat error:', error);
     await message.reply('申し訳ありませんが、エラーが発生しました。');
