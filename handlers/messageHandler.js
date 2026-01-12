@@ -466,9 +466,9 @@ async function handleInteraction(interaction, client) {
       }
     } else if (customId.startsWith('bj_hit_') || customId.startsWith('bj_stand_')) {
       const parts = customId.split('_');
-      const sessionId = parts[2];
-      const buttonUserId = parts[3];
-      const action = parts[1] === 'hit' ? 'hit' : 'stand';
+      const action = parts[1]; // 'hit' or 'stand'
+      const buttonUserId = parts[parts.length - 1]; // 最後の要素がuserId
+      const sessionId = parts.slice(2, -1).join('_'); // 中間部分がsessionId
 
       // 自分のボタン以外は無視
       if (buttonUserId !== interaction.user.id) {
@@ -495,11 +495,11 @@ async function handleInteraction(interaction, client) {
               new ButtonBuilder()
                 .setLabel('ヒット（追加カード）')
                 .setStyle(ButtonStyle.Primary)
-                .setCustomId(`bj_hit_${result.sessionId}`),
+                .setCustomId(`bj_hit_${result.sessionId}_${interaction.user.id}`),
               new ButtonBuilder()
                 .setLabel('スタンド（止める）')
                 .setStyle(ButtonStyle.Secondary)
-                .setCustomId(`bj_stand_${result.sessionId}`)
+                .setCustomId(`bj_stand_${result.sessionId}_${interaction.user.id}`)
             );
 
           await interaction.update({
