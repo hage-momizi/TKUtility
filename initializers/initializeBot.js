@@ -1,7 +1,9 @@
 const { GatewayIntentBits, EmbedBuilder, ActivityType, REST, Routes, Events } = require('discord.js');
 const { LavalinkManager } = require('lavalink-client');
+const schedule = require('node-schedule');
 const { startWebServer } = require('../webServer');
 const { startRealtimeMonitoring } = require('../modules/earthquakeService');
+const { updateTKUCRate } = require('../modules/economyService');
 const { FILES, LAVALINK_CONFIG } = require('../config/constants');
 const playLofiCommand = require('../commands/play-lofi');
 const newsTimesetCommand = require('../commands/news_timeset');
@@ -167,6 +169,7 @@ function setupBotPresence(client) {
  * @param {Client} client - Discordクライアント
  */
 function setupSchedules(client) {
+  // ニューススケジュール設定
   for (const [guildId, guild] of client.guilds.cache) {
     const config = loadJSON(FILES.NEWS_CONFIG);
     const guildConfig = config[guildId];
@@ -174,6 +177,17 @@ function setupSchedules(client) {
       newsTimesetCommand.setupSchedules(client, guildId, guildConfig.times);
     }
   }
+
+  // TKUCレート更新スケジュール（3分毎）
+  schedule.scheduleJob('*/3 * * * *', async () => {
+    try {
+      await updateTKUCRate();
+    } catch (error) {
+      console.error('TKUCレート更新スケジュールエラー:', error);
+    }
+  });
+
+  console.log('Scheduled jobs initialized: News notifications and TKUC rate updates');
 }
 
 module.exports = {

@@ -8,6 +8,9 @@ const FILES = {
   AI_CHANNEL: path.join(__dirname, '../aichannel.json'),
   AI_CHAT: path.join(__dirname, '../aichat.json'),
   AI_USER: path.join(__dirname, '../aiuser.json'),
+  USER_BALANCES: path.join(__dirname, '../userBalances.json'),
+  TKUC_RATE: path.join(__dirname, '../tkucRate.json'),
+  TRANSACTION_HISTORY: path.join(__dirname, '../transactionHistory.json'),
 };
 
 // AIレートリミット管理: userId -> [timestamp1, timestamp2, ...]

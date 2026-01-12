@@ -2,6 +2,7 @@ const { EmbedBuilder } = require('discord.js');
 const { FILES, aiRateLimit, ADMIN_COMMANDS } = require('../config/constants');
 const { loadJSON, saveJSON } = require('../modules/fileStorage');
 const { streamAIResponse, extractUserInfoFromChat } = require('../modules/aiService');
+const { calculateTKUPGain, earnTKUP } = require('../modules/economyService');
 
 // コマンドのインポート（自動化のため、execute時に動的に読み込み）
 const commandModules = {};
@@ -188,6 +189,27 @@ async function handleAIChat(message) {
 }
 
 /**
+ * TKUP獲得処理
+ * @param {Message} message - Discordメッセージ
+ */
+async function handleTKUPGain(message) {
+  if (message.author.bot) return;
+
+  // VC参加は対象外
+  if (message.member?.voice?.channel) return;
+
+  // 画像チェック
+  const hasImage = message.attachments.some(att => att.contentType?.startsWith('image/'));
+
+  // TKUP獲得計算
+  const gain = calculateTKUPGain(message.content, hasImage);
+  if (gain > 0) {
+    earnTKUP(message.author.id, gain);
+    console.log(`TKUP獲得: ${message.author.username} (+${gain} TKUP)`);
+  }
+}
+
+/**
  * ピン止めメッセージの更新処理
  * @param {Message} message - Discordメッセージ
  */
@@ -269,4 +291,5 @@ module.exports = {
   handleAIChat,
   handlePinUpdate,
   handleInteraction,
+  handleTKUPGain,
 };

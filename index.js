@@ -1,6 +1,6 @@
 const { Client, DefaultWebSocketManagerOptions, GatewayIntentBits, Events } = require('discord.js');
 const { initializeBot } = require('./initializers/initializeBot');
-const { handleAIChat, handlePinUpdate, handleInteraction } = require('./handlers/messageHandler');
+const { handleAIChat, handlePinUpdate, handleInteraction, handleTKUPGain } = require('./handlers/messageHandler');
 const { DISCORD_INTENTS } = require('./config/constants');
 
 // Discord WebSocket設定
@@ -20,9 +20,10 @@ client.once(Events.ClientReady, () => initializeBot(client));
 // インタラクションイベント（スラッシュコマンド）
 client.on(Events.InteractionCreate, (interaction) => handleInteraction(interaction, client));
 
-// メッセージイベント（ピン止め更新とAIチャット）
+// メッセージイベント（ピン止め更新、TKUP獲得、AIチャット）
 client.on(Events.MessageCreate, async (message) => {
   await handlePinUpdate(message);
+  await handleTKUPGain(message);
   await handleAIChat(message);
 });
 
