@@ -83,18 +83,20 @@ module.exports = {
           result = startBlackjack(interaction.user.id, amount, currency);
           embed.setDescription('🃏 ブラックジャック');
 
-          // インタラクティブな場合はボタンを追加
+          // インタラクティブな場合はボタンを追加（自分のみ有効）
           if (result.interactive) {
             const row = new ActionRowBuilder()
               .addComponents(
                 new ButtonBuilder()
                   .setLabel('ヒット（追加カード）')
                   .setStyle(ButtonStyle.Primary)
-                  .setCustomId(`bj_hit_${result.sessionId}`),
+                  .setCustomId(`bj_hit_${result.sessionId}_${interaction.user.id}`)
+                  .setDisabled(false), // 自分のボタンは有効
                 new ButtonBuilder()
                   .setLabel('スタンド（止める）')
                   .setStyle(ButtonStyle.Secondary)
-                  .setCustomId(`bj_stand_${result.sessionId}`)
+                  .setCustomId(`bj_stand_${result.sessionId}_${interaction.user.id}`)
+                  .setDisabled(false) // 自分のボタンは有効
               );
 
             return await interaction.reply({

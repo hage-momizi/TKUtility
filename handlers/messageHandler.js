@@ -465,8 +465,18 @@ async function handleInteraction(interaction, client) {
         });
       }
     } else if (customId.startsWith('bj_hit_') || customId.startsWith('bj_stand_')) {
-      const sessionId = customId.replace(/^(bj_hit_|bj_stand_)/, '');
-      const action = customId.startsWith('bj_hit_') ? 'hit' : 'stand';
+      const parts = customId.split('_');
+      const sessionId = parts[2];
+      const buttonUserId = parts[3];
+      const action = parts[1] === 'hit' ? 'hit' : 'stand';
+
+      // 自分のボタン以外は無視
+      if (buttonUserId !== interaction.user.id) {
+        return await interaction.reply({
+          content: 'これはあなたのゲームではありません。他の人のゲームには干渉できません。',
+          ephemeral: true
+        });
+      }
       const { playBlackjackAction } = require('../modules/casinoService');
 
       try {
