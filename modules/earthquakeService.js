@@ -3,9 +3,15 @@ const WebSocket = require('ws');
 const { EmbedBuilder } = require('discord.js');
 const { loadJSON, saveJSON } = require('./fileStorage');
 const path = require('path');
+const gtts = require('gtts');
+const { joinVoiceChannel, createAudioPlayer, createAudioResource, AudioPlayerStatus } = require('@discordjs/voice');
+const fs = require('fs');
 
 const earthquakeConfigFile = path.join(__dirname, '..', 'earthquake.json');
 const API_BASE_URL = 'https://api.p2pquake.net/v2';
+
+// ボイスチャンネル接続管理
+const voiceConnections = new Map(); // guildId -> { connection, player }
 
 // 地震情報のコードマップ
 const CODE_MAP = {
@@ -205,6 +211,110 @@ function getColorByScale(scale) {
 }
 
 /**
+ * テキストを音声ファイルに変換
+ * @param {string} text - 読み上げるテキスト
+ * @returns {Promise<string>} 音声ファイルのパス
+ */
+async function createTTSFile(text) {
+  const fileName = `tts_${Date.now()}.mp3`;
+  const filePath = path.join(__dirname, '..', 'temp', fileName);
+
+  // tempディレクトリが存在しない場合は作成
+  if (!fs.existsSync(path.dirname(filePath))) {
+    fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  }
+
+  const gttsInstance = new gtts(text, 'ja');
+
+  return new Promise((resolve, reject) => {
+    gttsInstance.save(filePath, (err) => {
+      if (err) reject(err);
+      else resolve(filePath);
+    });
+  });
+}
+
+/**
+ * ボイスチャンネルに参加
+ * @param {Client} client - Discordクライアント
+ * @param {string} guildId - ギルドID
+ * @param {string} channelId - チャンネルID
+ */
+function joinVoiceChannelForGuild(client, guildId, channelId) {
+  const guild = client.guilds.cache.get(guildId);
+  if (!guild) return;
+
+  const channel = guild.channels.cache.get(channelId);
+  if (!channel || channel.type !== 2) return; // GUILD_VOICE
+
+  const connection = joinVoiceChannel({
+    channelId: channel.id,
+    guildId: guild.id,
+    adapterCreator: guild.voiceAdapterCreator,
+  });
+
+  const player = createAudioPlayer();
+  connection.subscribe(player);
+
+  voiceConnections.set(guildId, { connection, player });
+  console.log(`Joined voice channel ${channel.name} in guild ${guild.name}`);
+}
+
+/**
+ * ボイスチャンネルから切断
+ * @param {string} guildId - ギルドID
+ */
+function leaveVoiceChannel(guildId) {
+  const voiceData = voiceConnections.get(guildId);
+  if (voiceData) {
+    voiceData.connection.destroy();
+    voiceConnections.delete(guildId);
+    console.log(`Left voice channel for guild ${guildId}`);
+  }
+}
+
+/**
+ * 音声を再生
+ * @param {string} guildId - ギルドID
+ * @param {string} filePath - 音声ファイルのパス
+ */
+function playAudioFile(guildId, filePath) {
+  const voiceData = voiceConnections.get(guildId);
+  if (!voiceData) return;
+
+  const resource = createAudioResource(filePath);
+  voiceData.player.play(resource);
+
+  voiceData.player.on(AudioPlayerStatus.Idle, () => {
+    // 再生終了後にファイルを削除
+    fs.unlink(filePath, (err) => {
+      if (err) console.error('Failed to delete TTS file:', err);
+    });
+  });
+}
+
+/**
+ * 地震データを読み上げテキストに変換
+ * @param {Object} data - 地震データ
+ * @returns {string} 読み上げテキスト
+ */
+function createTTSMessage(data) {
+  if (data.code === 551 && data.earthquake) {
+    const eq = data.earthquake;
+    const hypocenter = eq.hypocenter?.name || '不明';
+    const maxScale = SCALE_MAP[eq.maxScale] || '不明';
+    const magnitude = eq.hypocenter?.magnitude ? `マグニチュード${eq.hypocenter.magnitude}` : '';
+    return `地震情報です。震源地は${hypocenter}、最大震度は${maxScale}です。${magnitude}`;
+  } else if (data.code === 556 && data.earthquake) {
+    const eq = data.earthquake;
+    const hypocenter = eq.hypocenter?.name || '不明';
+    const magnitude = eq.hypocenter?.magnitude ? `マグニチュード${eq.hypocenter.magnitude}` : '';
+    return `緊急地震速報です。警報です。震源地は${hypocenter}。${magnitude}。強い揺れに注意してください。`;
+  }
+  return '';
+}
+
+/**
  * WebSocketでリアルタイム監視開始
  * @param {Client} client - Discordクライアント
  */
@@ -240,12 +350,13 @@ function startRealtimeMonitoring(client) {
  * @param {Object} data - 受信データ
  */
 async function handleRealtimeData(client, data) {
-  // EEW（緊急地震速報）の場合のみ処理
-  if (data.code === 556) {
+  // 地震情報（551）またはEEW（556）の場合のみ処理
+  if (data.code === 551 || data.code === 556) {
     const config = loadJSON(earthquakeConfigFile);
 
     for (const [guildId, guildConfig] of Object.entries(config)) {
-      if (guildConfig.eewChannelId && guildConfig.watchEnabled !== false) {
+      // テキストチャンネルへの送信（EEWの場合のみ、または地震情報も送信したい場合）
+      if (data.code === 556 && guildConfig.eewChannelId && guildConfig.watchEnabled !== false) {
         try {
           const channel = await client.channels.fetch(guildConfig.eewChannelId);
           if (channel && channel.isTextBased()) {
@@ -255,6 +366,23 @@ async function handleRealtimeData(client, data) {
           }
         } catch (error) {
           console.error(`Failed to send EEW to guild ${guildId}:`, error);
+        }
+      }
+
+      // 音声読み上げ
+      if (guildConfig.vcChannelId && guildConfig.vcEnabled) {
+        try {
+          // vc参加チェック
+          if (!voiceConnections.has(guildId)) {
+            joinVoiceChannelForGuild(client, guildId, guildConfig.vcChannelId);
+          }
+          const ttsMessage = createTTSMessage(data);
+          if (ttsMessage) {
+            const filePath = await createTTSFile(ttsMessage);
+            playAudioFile(guildId, filePath);
+          }
+        } catch (error) {
+          console.error(`Failed to play TTS for guild ${guildId}:`, error);
         }
       }
     }
@@ -289,5 +417,10 @@ module.exports = {
   createEarthquakeEmbed,
   startRealtimeMonitoring,
   getGuildConfig,
-  saveGuildConfig
+  saveGuildConfig,
+  joinVoiceChannelForGuild,
+  leaveVoiceChannel,
+  playAudioFile,
+  createTTSMessage,
+  voiceConnections
 };
