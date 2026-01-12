@@ -11,7 +11,7 @@ module.exports = {
         .setRequired(true)
         .setMinValue(1)),
 
-  async execute(interaction) {
+  async execute(interaction, client) {
     try {
       const amount = interaction.options.getInteger('amount');
 

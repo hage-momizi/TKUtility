@@ -6,7 +6,7 @@ module.exports = {
     .setName('tk-balance')
     .setDescription('TKUPとTKUCの残高を表示します'),
 
-  async execute(interaction) {
+  async execute(interaction, client) {
     try {
       const balanceInfo = formatBalance(interaction.user.id);
 

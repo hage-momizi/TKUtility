@@ -11,7 +11,7 @@ module.exports = {
         .setMinValue(10)
         .setMaxValue(100)),
 
-  async execute(interaction) {
+  async execute(interaction, client) {
     try {
       const points = interaction.options.getInteger('points') || 50;
       const currentRate = getTKUCRate();
