@@ -48,6 +48,7 @@ const commandHandlers = {
   'tk-market': () => require('../commands/tk-market'),
   'tk-gamble': () => require('../commands/tk-gamble'),
   'tk-leaderboard': () => require('../commands/tk-leaderboard'),
+  'tk-settings': () => require('../commands/tk-settings'),
   'tk-buy-order': () => require('../commands/tk-buy-order'),
   'tk-sell-order': () => require('../commands/tk-sell-order'),
   'tk-orders': () => require('../commands/tk-orders'),

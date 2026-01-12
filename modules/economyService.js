@@ -338,24 +338,27 @@ function transferTKUC(fromUserId, toUserId, amount) {
     return { success: false, message: '自分自身には送金できません。' };
   }
 
+  // 手数料計算（0.1%、最小0.001 TKUC、最大0.1 TKUC）
+  const fee = Math.min(0.1, Math.max(0.001, amount * 0.001));
+
   const fromBalance = getUserBalance(fromUserId);
   const toBalance = getUserBalance(toUserId);
 
-  if (fromBalance.tkuc < amount) {
+  if (fromBalance.tkuc < amount + fee) {
     return { success: false, message: 'TKUC残高が不足しています。' };
   }
 
   // 取引実行
-  fromBalance.tkuc -= amount;
+  fromBalance.tkuc -= (amount + fee);
   toBalance.tkuc += amount;
 
   saveUserBalance(fromUserId, fromBalance);
   saveUserBalance(toUserId, toBalance);
 
-  recordTransaction(fromUserId, 'transfer_tkuc', { toUserId, amount });
+  recordTransaction(fromUserId, 'transfer_tkuc', { toUserId, amount, fee });
   recordTransaction(toUserId, 'receive_tkuc', { fromUserId, amount });
 
-  return { success: true, message: `${amount} TKUCを送金しました。` };
+  return { success: true, message: `${amount} TKUCを送金しました。（手数料: ${fee} TKUC）` };
 }
 
 /**
