@@ -1361,6 +1361,7 @@ module.exports = {
   calculateTKUPGain,
   checkTKUPHourlyLimit,
   earnTKUP,
+  checkCasinoDailyBonus,
   getTKUCRate,
   updateTKUCRate,
   buyTKUC,
