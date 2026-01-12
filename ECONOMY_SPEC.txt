@@ -1,7 +1,7 @@
-# TKBot 仮想通貨システム仕様書 v2.0
+# TK Utility仮想通貨システム仕様書 v2.0
 
 ## 概要
-TKBotに実装された仮想通貨システム「TK Economy」の完全仕様です。TKUP（Talk Utility Points）とTKUC（TK Utility Coin）の2つの通貨を基盤とした経済システムを提供します。
+TKUtilityに実装された仮想通貨システム「TK Economy」の完全仕様です。TKUP（Talk Utility Points）とTKUC（TK Utility Coin）の2つの通貨を基盤とした経済システムを提供します。
 
 ## 通貨仕様
 

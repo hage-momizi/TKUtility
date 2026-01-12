@@ -20,6 +20,6 @@
   "engines": {
     "node": ">=16.0.0"
   },
-  "author": "TKBot",
+  "author": "TKUtility",
   "license": "MIT"
 }

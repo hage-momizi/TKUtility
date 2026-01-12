@@ -1,5 +1,5 @@
 {
-  "name": "tkbot",
+  "name": "TKUtility",
   "version": "1.0.0",
   "description": "A Discord bot built with Node.js",
   "main": "index.js",

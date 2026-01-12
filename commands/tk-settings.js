@@ -11,7 +11,7 @@ module.exports = {
       const currentRate = getTKUCRate();
 
       const embed = new EmbedBuilder()
-        .setTitle('📊 TKBot 経済システム設定')
+        .setTitle('📊 TKUtility 経済システム設定')
         .setColor(0x4CAF50)
         .setTimestamp();
 
