@@ -150,16 +150,25 @@ async function updateTKUCRate() {
 
     let changePercent;
 
-    // AIに市場情報を渡してレート決定（条件厳格化）
-    // 市場が十分に活性化している場合のみAIを使用
-    const shouldUseAI = (
-      (marketData.buyPressure > 1 || marketData.sellPressure > 1) &&
-      (chatActivity > 30 || recentTrades > 3 || top3Ratio > 0.4)
-    );
+    // AIに市場情報を渡してレート決定（毎回使用）
+    // すべてのレート更新でAIを使用（安定化のため）
+    const shouldUseAI = true;
 
     if (aiClient && shouldUseAI) {
       try {
         console.log('🤖 AIにレート決定を依頼...');
+
+        // 特別な市場状況を判定
+        const isExtremeActivity = chatActivity > 80;
+        const isHighConcentration = top3Ratio > 0.8;
+        const isVeryActiveTrading = recentTrades > 20;
+
+        let maxVariation = 5; // 通常の最大変動
+
+        // 極端な状況での変動幅拡大
+        if (isExtremeActivity || isHighConcentration || isVeryActiveTrading) {
+          maxVariation = 8; // 極端な状況では最大8%まで
+        }
 
         const aiPrompt = `
 現在のTKUCレート: ${currentRate} TKUP
@@ -169,22 +178,26 @@ async function updateTKUCRate() {
 - 売り注文数: ${marketData.sellPressure}
 - 総TKUP保有: ${marketData.totalTKUP}
 - 総TKUC保有: ${marketData.totalTKUC}
-- チャット盛り上がり度: ${chatActivity.toFixed(1)}/100
-- 上位3人保有割合: ${(top3Ratio * 100).toFixed(1)}%
-- 最近の取引数: ${recentTrades}件
+- チャット盛り上がり度: ${chatActivity.toFixed(1)}/100 ${isExtremeActivity ? '🔥 非常に活発！' : ''}
+- 上位3人保有割合: ${(top3Ratio * 100).toFixed(1)}% ${isHighConcentration ? '⚠️ 集中度高！' : ''}
+- 最近の取引数: ${recentTrades}件 ${isVeryActiveTrading ? '🚀 取引活発！' : ''}
+
+特別状況:
+${isExtremeActivity ? '• チャットが非常に盛り上がっている！積極的なレート上昇を検討\n' : ''}${isHighConcentration ? '• 保有が集中化している！下降圧力を強める\n' : ''}${isVeryActiveTrading ? '• 取引が非常に活発！市場反応を強化\n' : ''}
 
 レート変動要因:
 - 買い圧力: ${marketData.buyPressure > marketData.sellPressure ? '強' : '弱'}
 - 売り圧力: ${marketData.sellPressure > marketData.buyPressure ? '強' : '弱'}
-- チャット活性: ${chatActivity > 50 ? '高' : '低'}
-- 保有集中度: ${top3Ratio > 0.7 ? '高' : '低'}
-- 取引活発度: ${recentTrades > 10 ? '高' : '低'}
+- チャット活性: ${chatActivity > 50 ? '高' : chatActivity > 80 ? '非常に高' : '低'}
+- 保有集中度: ${top3Ratio > 0.7 ? '高' : top3Ratio > 0.8 ? '非常に高' : '低'}
+- 取引活発度: ${recentTrades > 10 ? '高' : recentTrades > 20 ? '非常に高' : '低'}
 
-変動範囲: -5% から +5%
+変動範囲: -${maxVariation}% から +${maxVariation}%
 分析理由とレート変動率を簡潔に説明してください。
 
 例: "買い圧力が強く市場が活発なので+2.5%上昇を推奨"
 または "売り注文が多くチャットも落ち着いているため-1.8%下降を提案"
+極端な盛り上がりの場合: "チャットが爆発的に盛り上がっているため+6%の大幅上昇を推奨"
 `;
 
         const aiConfig = loadJSON(FILES.AI_CONFIG) || { provider: 'openrouter' };
@@ -193,8 +206,8 @@ async function updateTKUCRate() {
         const completion = await aiClient.chat.completions.create({
           model: model,
           messages: [{ role: 'user', content: aiPrompt }],
-          max_tokens: 10,
-          temperature: 0.7,
+          max_tokens: 15,
+          temperature: 0.3, // 安定した判断のため温度を下げる
         });
 
         const aiResponse = completion.choices[0].message.content.trim();
