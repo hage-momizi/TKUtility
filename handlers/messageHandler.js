@@ -53,7 +53,8 @@ const commandHandlers = {
   'tk-buy-order': () => require('../commands/tk-buy-order'),
   'tk-sell-order': () => require('../commands/tk-sell-order'),
   'tk-orders': () => require('../commands/tk-orders'),
-  'tk-cancel-order': () => require('../commands/tk-cancel-order')
+  'tk-cancel-order': () => require('../commands/tk-cancel-order'),
+  'tk-kajino': () => require('../commands/tk-kajino')
 };
 
 /**
@@ -280,39 +281,70 @@ async function handlePinUpdate(message) {
  * @param {Client} client - Discordクライアント
  */
 async function handleInteraction(interaction, client) {
-  if (!interaction.isChatInputCommand()) return;
+  if (interaction.isChatInputCommand()) {
+    const commandName = interaction.commandName;
+    const handler = commandHandlers[commandName];
 
-  const commandName = interaction.commandName;
-  const handler = commandHandlers[commandName];
-
-  if (handler) {
-    // 管理者コマンドの権限チェック
-    if (ADMIN_COMMANDS.includes(commandName)) {
-      if (!interaction.member.permissions.has('Administrator')) {
-        await interaction.reply({ content: 'このコマンドは管理者専用です。', ephemeral: true });
-        return;
+    if (handler) {
+      // 管理者コマンドの権限チェック
+      if (ADMIN_COMMANDS.includes(commandName)) {
+        if (!interaction.member.permissions.has('Administrator')) {
+          await interaction.reply({ content: 'このコマンドは管理者専用です。', ephemeral: true });
+          return;
+        }
       }
+
+      try {
+        const module = handler();
+        // volumeコマンドの場合は追加パラメータを渡す
+        if (commandName === 'volume') {
+          await module.execute(interaction, client, loadJSON, saveJSON);
+        } else {
+          await module.execute(interaction, client);
+        }
+      } catch (error) {
+        console.error(`Error executing command ${commandName}:`, error);
+        if (!interaction.replied && !interaction.deferred) {
+          await interaction.reply({
+            content: 'コマンド実行中にエラーが発生しました。',
+            ephemeral: true
+          }).catch(e => console.error('Error replying:', e));
+        }
+      }
+    } else {
+      console.warn(`Command not found: ${commandName}`);
     }
+  } else if (interaction.isButton()) {
+    // ボタンクリック処理
+    const customId = interaction.customId;
 
-    try {
-      const module = handler();
-      // volumeコマンドの場合は追加パラメータを渡す
-      if (commandName === 'volume') {
-        await module.execute(interaction, client, loadJSON, saveJSON);
-      } else {
-        await module.execute(interaction, client);
-      }
-    } catch (error) {
-      console.error(`Error executing command ${commandName}:`, error);
-      if (!interaction.replied && !interaction.deferred) {
+    if (customId.startsWith('kake_join_')) {
+      const gameId = customId.replace('kake_join_', '');
+      const { joinKakeGame } = require('../modules/casinoService');
+
+      try {
+        const result = joinKakeGame(interaction.user.id, gameId);
+
+        const embed = new EmbedBuilder()
+          .setTitle('🎲 掛け金ゲーム参加')
+          .setColor(result.success ? 0x28a745 : 0xdc3545);
+
+        if (result.success) {
+          embed.setDescription(result.message);
+        } else {
+          embed.addFields({ name: 'エラー', value: result.message, inline: false });
+        }
+
+        await interaction.reply({ embeds: [embed], ephemeral: true });
+
+      } catch (error) {
+        console.error('Kake game join error:', error);
         await interaction.reply({
-          content: 'コマンド実行中にエラーが発生しました。',
+          content: 'ゲーム参加中にエラーが発生しました。',
           ephemeral: true
-        }).catch(e => console.error('Error replying:', e));
+        });
       }
     }
-  } else {
-    console.warn(`Command not found: ${commandName}`);
   }
 }
 
