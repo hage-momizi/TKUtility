@@ -4,7 +4,9 @@
   "description": "A Discord bot built with Node.js",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "register-commands": "node commandsetup.js",
+    "register-guild-commands": "node commandsetup.js --guild --guild-id"
   },
   "dependencies": {
     "@discordjs/voice": "^0.18.0",
