@@ -206,7 +206,7 @@ ${isExtremeActivity ? '• チャットが非常に盛り上がっている！�
         const completion = await aiClient.chat.completions.create({
           model: model,
           messages: [{ role: 'user', content: aiPrompt }],
-          max_tokens: 15,
+          max_tokens: 25, // より詳細な分析のため増やす
           temperature: 0.3, // 安定した判断のため温度を下げる
         });
 

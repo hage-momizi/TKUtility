@@ -5,6 +5,8 @@ const multer = require('multer');
 const { ChannelType } = require('discord.js');
 const { loadJSON, saveJSON } = require('./modules/fileStorage');
 const { summarizeNews } = require('./modules/aiService');
+const { getTKUCRate, getOrderBook } = require('./modules/economyService');
+const { FILES } = require('./config/constants');
 
 const newsConfigFile = path.join(__dirname, 'newsconfig.json');
 
@@ -94,6 +96,55 @@ function startWebServer(client) {
     } catch (error) {
       console.error('Perplexity summarization error:', error);
       res.status(500).json({ error: 'Summarization failed' });
+    }
+  });
+
+  // TKUCレートチャートAPI
+  app.get('/api/current-rate', (req, res) => {
+    try {
+      const currentRate = getTKUCRate();
+      res.json({
+        success: true,
+        rate: currentRate,
+        timestamp: Date.now()
+      });
+    } catch (error) {
+      console.error('Current rate API error:', error);
+      res.status(500).json({ success: false, error: 'Failed to get current rate' });
+    }
+  });
+
+  app.get('/api/rate-history', (req, res) => {
+    try {
+      const points = parseInt(req.query.points) || 50;
+      const rateData = loadJSON(FILES.TKUC_RATE);
+      const history = rateData.history || [];
+
+      // 最新points件を取得
+      const recentHistory = history.slice(-points);
+
+      res.json({
+        success: true,
+        history: recentHistory,
+        currentRate: rateData.currentRate || 500
+      });
+    } catch (error) {
+      console.error('Rate history API error:', error);
+      res.status(500).json({ success: false, error: 'Failed to get rate history' });
+    }
+  });
+
+  app.get('/api/order-book', (req, res) => {
+    try {
+      const orderBook = getOrderBook();
+      res.json({
+        success: true,
+        buyOrders: orderBook.buyOrders || [],
+        sellOrders: orderBook.sellOrders || []
+      });
+    } catch (error) {
+      console.error('Order book API error:', error);
+      res.status(500).json({ success: false, error: 'Failed to get order book' });
     }
   });
 

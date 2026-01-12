@@ -3,63 +3,168 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TKUtility ニュース管理パネル</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <title>TKUC レートチャート - TK Utility</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="styles.css">
+    <style>
+        .chart-container {
+            position: relative;
+            height: 400px;
+            margin-bottom: 20px;
+        }
+        .market-stats {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            color: white;
+        }
+        .stat-card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 10px;
+            backdrop-filter: blur(10px);
+        }
+        .price-up {
+            color: #00ff88;
+        }
+        .price-down {
+            color: #ff6b6b;
+        }
+        .trading-panel {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .order-book {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .buy-order {
+            color: #00ff88;
+        }
+        .sell-order {
+            color: #ff6b6b;
+        }
+    </style>
 </head>
 <body>
-    <div class="container-fluid">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="#">
+                <i class="fas fa-chart-line"></i> TKUC レートチャート
+            </a>
+            <div class="navbar-nav ms-auto">
+                <span class="navbar-text" id="current-rate">
+                    読み込み中...
+                </span>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid mt-4">
         <div class="row">
-            <!-- サーバーサイドバー -->
-            <div class="col-md-2 sidebar">
-                <h5 class="sidebar-title">サーバー一覧</h5>
-                <div id="guild-list" class="guild-list">
-                    <!-- サーバーが動的に追加される -->
+            <!-- メインチャート -->
+            <div class="col-lg-8">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-chart-area"></i> TKUC/USD レートチャート
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container">
+                            <canvas id="rateChart"></canvas>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <button class="btn btn-outline-primary btn-sm" onclick="setTimeframe('1m')">1分</button>
+                                <button class="btn btn-outline-primary btn-sm" onclick="setTimeframe('5m')">5分</button>
+                                <button class="btn btn-outline-primary btn-sm" onclick="setTimeframe('15m')">15分</button>
+                                <button class="btn btn-outline-primary btn-sm" onclick="setTimeframe('1h')">1時間</button>
+                            </div>
+                            <div>
+                                <span class="badge bg-success" id="market-status">市場: アクティブ</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <!-- メインコンテンツ -->
-            <div class="col-md-10 main-content">
-                <div class="row">
-                    <!-- 左側：設定 -->
-                    <div class="col-md-6 settings-panel">
-                        <h4>ニュース設定</h4>
-                        <div id="guild-info">
-                            <p>サーバーを選択してください</p>
-                        </div>
-                        <div id="settings-form" style="display: none;">
-                            <div class="mb-3">
-                                <label for="channel-select" class="form-label">配信チャンネル</label>
-                                <select class="form-select" id="channel-select">
-                                    <!-- チャンネルが動的に追加される -->
-                                </select>
-                            </div>
-                            <div id="news-items">
-                                <!-- ニュースアイテムが動的に追加される -->
-                            </div>
-                            <button class="btn btn-primary" onclick="addNewsItem()">ニュースを追加</button>
-                            <button class="btn btn-success mt-3" onclick="saveConfig()">保存</button>
-                        </div>
-
-                        <!-- AI要約チャット -->
-                        <div class="mt-4">
-                            <h5>AIニュース要約</h5>
-                            <textarea id="ai-input" class="form-control" rows="4" placeholder="ニュースの内容をここに貼り付けてください"></textarea>
-                            <button class="btn btn-info mt-2" onclick="summarizeNews()">要約する</button>
-                            <div id="ai-output" class="mt-2 p-2 bg-dark text-light rounded" style="min-height: 50px;"></div>
+            <!-- サイドバー -->
+            <div class="col-lg-4">
+                <!-- 市場統計 -->
+                <div class="market-stats">
+                    <h6 class="mb-3"><i class="fas fa-tachometer-alt"></i> 市場統計</h6>
+                    <div class="stat-card">
+                        <div class="d-flex justify-content-between">
+                            <span>現在レート</span>
+                            <span id="stats-current-rate">-- TKUP</span>
                         </div>
                     </div>
+                    <div class="stat-card">
+                        <div class="d-flex justify-content-between">
+                            <span>24h変動</span>
+                            <span id="stats-change">--</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="d-flex justify-content-between">
+                            <span>取引高</span>
+                            <span id="stats-volume">-- TKUC</span>
+                        </div>
+                    </div>
+                </div>
 
-                    <!-- 右側：プレビュー -->
-                    <div class="col-md-6 preview-panel">
-                        <h4>プレビュー</h4>
-                        <div id="preview-container" class="preview-container">
-                            <div class="embed-preview">
-                                <div class="embed-title">📢 今日のピックアップニュース</div>
-                                <div id="embed-fields">
-                                    <!-- ニュースフィールドが動的に追加される -->
-                                </div>
-                                <div class="embed-footer">今</div>
+                <!-- 取引パネル -->
+                <div class="trading-panel">
+                    <h6><i class="fas fa-exchange-alt"></i> クイック取引</h6>
+                    <div class="row">
+                        <div class="col-6">
+                            <button class="btn btn-success w-100 mb-2" onclick="quickBuy()">
+                                <i class="fas fa-arrow-up"></i> 買い
+                            </button>
+                        </div>
+                        <div class="col-6">
+                            <button class="btn btn-danger w-100 mb-2" onclick="quickSell()">
+                                <i class="fas fa-arrow-down"></i> 売り
+                            </button>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">数量 (TKUC)</label>
+                        <input type="number" class="form-control" id="trade-amount" placeholder="1.0" min="0.1" step="0.1">
+                    </div>
+                </div>
+
+                <!-- オーダー板 -->
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="card-title mb-0"><i class="fas fa-book"></i> オーダー板</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="order-book" id="order-book">
+                            <div class="text-center text-muted">読み込み中...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 市場ニュース -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="card-title mb-0"><i class="fas fa-newspaper"></i> 市場ニュース</h6>
+                    </div>
+                    <div class="card-body">
+                        <div id="market-news">
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle"></i> レート変動要因や市場イベントがここに表示されます。
                             </div>
                         </div>
                     </div>
@@ -68,7 +173,10 @@
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="script.js"></script>
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Font Awesome -->
+    <script src="https://kit.fontawesome.com/your-font-awesome-kit.js" crossorigin="anonymous"></script>
+    <script src="chart.js"></script>
 </body>
 </html>

@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+あconst { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const { loadJSON, saveJSON } = require('../modules/fileStorage');
 const { FILES } = require('../config/constants');
 
