@@ -1,0 +1,22 @@
+name: Deploy to Server
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: SSH Deploy
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: 64.176.215.133
+          username: root
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            cd /root/bot-git
+            git pull
+            systemctl restart tk
