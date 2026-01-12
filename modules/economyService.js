@@ -956,6 +956,7 @@ module.exports = {
   getTKUPRanking,
   getTKUCRanking,
   resetAllBalances,
+  formatOrderBook,
   testRateUpdate, // デバッグ用
   testAIConnection, // デバッグ用
 };
