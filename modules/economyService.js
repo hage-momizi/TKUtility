@@ -386,7 +386,8 @@ function generateRateChart(points = 50) {
   const rateRange = maxRate - minRate || 1;
 
   // スケール関数
-  const xScale = (index) => padding + (index / (data.length - 1 || 1)) * (width - 2 * padding);
+  const dataLength = Math.max(data.length - 1, 1);
+  const xScale = (index) => padding + (index / dataLength) * (width - 2 * padding);
   const yScale = (rate) => height - padding - ((rate - minRate) / rateRange) * (height - 2 * padding);
 
   // グリッド線
@@ -456,9 +457,10 @@ function generateRateChart(points = 50) {
 
   // X軸ラベル（時間）
   ctx.textAlign = 'center';
-  const timeLabels = Math.min(5, data.length);
+  const timeLabels = Math.min(5, Math.max(data.length, 1));
   for (let i = 0; i < timeLabels; i++) {
-    const index = Math.floor((i / (timeLabels - 1)) * (data.length - 1));
+    const totalIndex = Math.max(data.length - 1, 1);
+    const index = Math.floor((i / (timeLabels - 1 || 1)) * totalIndex);
     const x = xScale(index);
     const time = new Date(timestamps[index]).toLocaleTimeString('ja-JP', {
       hour: '2-digit',

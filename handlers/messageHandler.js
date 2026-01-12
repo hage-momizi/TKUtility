@@ -287,13 +287,25 @@ async function handleInteraction(interaction, client) {
       }
     }
 
-    const module = handler();
-    // volumeコマンドの場合は追加パラメータを渡す
-    if (commandName === 'volume') {
-      await module.execute(interaction, client, loadJSON, saveJSON);
-    } else {
-      await module.execute(interaction, client);
+    try {
+      const module = handler();
+      // volumeコマンドの場合は追加パラメータを渡す
+      if (commandName === 'volume') {
+        await module.execute(interaction, client, loadJSON, saveJSON);
+      } else {
+        await module.execute(interaction, client);
+      }
+    } catch (error) {
+      console.error(`Error executing command ${commandName}:`, error);
+      if (!interaction.replied && !interaction.deferred) {
+        await interaction.reply({
+          content: 'コマンド実行中にエラーが発生しました。',
+          ephemeral: true
+        }).catch(e => console.error('Error replying:', e));
+      }
     }
+  } else {
+    console.warn(`Command not found: ${commandName}`);
   }
 }
 

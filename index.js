@@ -20,9 +20,16 @@ client.once(Events.ClientReady, () => initializeBot(client));
 // インタラクションイベント（スラッシュコマンド）
 client.on(Events.InteractionCreate, async (interaction) => {
   try {
+    console.log(`[Command] ${interaction.commandName} by ${interaction.user.username}`);
     await handleInteraction(interaction, client);
   } catch (error) {
-    console.error('Error handling interaction:', error);
+    console.error(`[Error] Command: ${interaction.commandName}`, error);
+    if (!interaction.replied && !interaction.deferred) {
+      await interaction.reply({
+        content: 'コマンド実行中にエラーが発生しました。',
+        ephemeral: true
+      }).catch(e => console.error('Reply error:', e));
+    }
   }
 });
 
