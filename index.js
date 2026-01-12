@@ -393,6 +393,23 @@ const commandHandlers = {
 const adminCommands = ['news_now', 'news_fetch', 'news_timeset', 'ai-channel', 'ai-control', 'ai-stop', 'ai-start', 'ai-change'];
 
 /**
+ * 会話の開始者を特定する
+ * @param {Message} message - Discordメッセージ
+ * @returns {string} 開始者のユーザーID
+ */
+async function getConversationStarter(message) {
+  let current = message;
+  while (current.reference) {
+    try {
+      current = await current.channel.messages.fetch(current.reference.messageId);
+    } catch {
+      break;
+    }
+  }
+  return current.author.id;
+}
+
+/**
  * AIレートリミットチェック
  * @param {string} userId - ユーザーID
  * @returns {boolean} レートリミット内か
@@ -427,6 +444,12 @@ async function handleAIChat(message) {
   const guildConfig = config[message.guild.id];
   if (!guildConfig || !guildConfig.channelId || guildConfig.channelId !== message.channel.id || !guildConfig.enabled) {
     return;
+  }
+
+  // 返信がある場合は会話の開始者をチェック（同じユーザーである場合のみ応答）
+  if (message.reference) {
+    const starterId = await getConversationStarter(message);
+    if (starterId !== message.author.id) return;
   }
 
   // レートリミットチェック
