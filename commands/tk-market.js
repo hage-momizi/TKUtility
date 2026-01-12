@@ -27,7 +27,6 @@ module.exports = {
         .addFields(
           { name: '💻 ウェブチャート', value: `[クリックして開く](${chartUrl})`, inline: true },
           { name: '🔄 更新間隔', value: '5秒毎', inline: true },
-          { name: '📱 モバイル対応', value: 'レスポンシブ', inline: true }
         )
         .setFooter({ text: 'チャートは自動更新されます | /tk-settings で詳細設定を確認' })
         .setTimestamp();
@@ -51,50 +50,86 @@ module.exports = {
         components: [row]
       });
 
-      // リアルタイム更新ループ
+      // レート変更監視ループ
+      let lastRate = currentRate;
       let updateCount = 0;
-      const maxUpdates = 60; // 5分間更新（5秒×60）
+      const maxUpdates = 60; // 5分間監視（5秒×60）
 
       const updateInterval = setInterval(async () => {
         try {
           updateCount++;
           if (updateCount > maxUpdates) {
             clearInterval(updateInterval);
+
+            // 最終更新メッセージ
+            const finalEmbed = new EmbedBuilder()
+              .setTitle('📈 TKUC市場情報（監視終了）')
+              .setDescription(
+                `現在のTKUCレート: **${lastRate} TKUP**\n\n` +
+                `📊 **リアルタイム監視終了**\n` +
+                `5分間の監視が完了しました\n` +
+                `引き続きチャートをご覧ください`
+              )
+              .setColor(0x6c757d)
+              .setImage('attachment://tkuc-chart.png')
+              .addFields(
+                { name: '💻 ウェブチャート', value: `[クリックして開く](${chartUrl})`, inline: true },
+                { name: '🔄 監視時間', value: '5分間', inline: true },
+                { name: '📱 モバイル対応', value: 'レスポンシブ', inline: true }
+              )
+              .setFooter({ text: 'チャートはレート変更時に更新されます | /tk-settings で詳細設定を確認' })
+              .setTimestamp();
+
+            await interaction.editReply({
+              embeds: [finalEmbed],
+              files: [{ attachment: chartBuffer, name: 'tkuc-chart.png' }],
+              components: [row]
+            });
+
             return;
           }
 
           const newRate = getTKUCRate();
-          const newChartBuffer = generateRateChart(50);
 
-          const updatedEmbed = new EmbedBuilder()
-            .setTitle('📈 TKUC市場情報（リアルタイム）')
-            .setDescription(
-              `現在のTKUCレート: **${newRate} TKUP**\n\n` +
-              `📊 **リアルタイムチャート**\n` +
-              `最終更新: ${new Date().toLocaleTimeString('ja-JP')}\n` +
-              `更新回数: ${updateCount}/${maxUpdates}`
-            )
-            .setColor(0x28a745)
-            .setImage('attachment://tkuc-chart.png')
-            .addFields(
-              { name: '💻 ウェブチャート', value: `[クリックして開く](${chartUrl})`, inline: true },
-              { name: '🔄 更新間隔', value: '5秒毎', inline: true },
-              { name: '📱 モバイル対応', value: 'レスポンシブ', inline: true }
-            )
-            .setFooter({ text: 'チャートは自動更新されます | /tk-settings で詳細設定を確認' })
-            .setTimestamp();
+          // レートが変わった場合のみ更新
+          if (newRate !== lastRate) {
+            const newChartBuffer = generateRateChart(50);
+            const changePercent = ((newRate - lastRate) / lastRate) * 100;
 
-          await interaction.editReply({
-            embeds: [updatedEmbed],
-            files: [{ attachment: newChartBuffer, name: 'tkuc-chart.png' }],
-            components: [row]
-          });
+            const updatedEmbed = new EmbedBuilder()
+              .setTitle('📈 TKUC市場情報（レート変更）')
+              .setDescription(
+                `現在のTKUCレート: **${newRate} TKUP**\n` +
+                `前回レート: ${lastRate} TKUP\n` +
+                `変動: ${changePercent >= 0 ? '+' : ''}${changePercent.toFixed(2)}%\n\n` +
+                `📊 **レート変更検知**\n` +
+                `最終更新: ${new Date().toLocaleTimeString('ja-JP')}\n` +
+                `監視継続中: ${updateCount}/${maxUpdates}`
+              )
+              .setColor(changePercent >= 0 ? 0x28a745 : 0xdc3545)
+              .setImage('attachment://tkuc-chart.png')
+              .addFields(
+                { name: '💻 ウェブチャート', value: `[クリックして開く](${chartUrl})`, inline: true },
+                { name: '🔄 更新トリガー', value: 'レート変更時', inline: true },
+                { name: '📱 モバイル対応', value: 'レスポンシブ', inline: true }
+              )
+              .setFooter({ text: 'レート変更時に自動更新されます | /tk-settings で詳細設定を確認' })
+              .setTimestamp();
+
+            await interaction.editReply({
+              embeds: [updatedEmbed],
+              files: [{ attachment: newChartBuffer, name: 'tkuc-chart.png' }],
+              components: [row]
+            });
+
+            lastRate = newRate;
+          }
 
         } catch (error) {
           console.error('Chart update error:', error);
           clearInterval(updateInterval);
         }
-      }, 5000); // 5秒毎更新
+      }, 5000); // 5秒毎チェック
 
     } catch (error) {
       console.error('Market command error:', error);

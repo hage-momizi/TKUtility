@@ -119,24 +119,33 @@
                     </div>
                 </div>
 
-                <!-- 取引パネル -->
+                <!-- 取引パネル（無効化） -->
                 <div class="trading-panel">
-                    <h6><i class="fas fa-exchange-alt"></i> クイック取引</h6>
+                    <h6><i class="fas fa-exchange-alt"></i> 取引情報</h6>
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> 取引はDiscordのコマンドで行ってください
+                    </div>
                     <div class="row">
                         <div class="col-6">
-                            <button class="btn btn-success w-100 mb-2" onclick="quickBuy()">
+                            <button class="btn btn-secondary w-100 mb-2" disabled>
                                 <i class="fas fa-arrow-up"></i> 買い
                             </button>
                         </div>
                         <div class="col-6">
-                            <button class="btn btn-danger w-100 mb-2" onclick="quickSell()">
+                            <button class="btn btn-secondary w-100 mb-2" disabled>
                                 <i class="fas fa-arrow-down"></i> 売り
                             </button>
                         </div>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">数量 (TKUC)</label>
-                        <input type="number" class="form-control" id="trade-amount" placeholder="1.0" min="0.1" step="0.1">
+                        <input type="number" class="form-control" id="trade-amount" placeholder="1.0" min="0.1" step="0.1" disabled>
+                    </div>
+                    <div class="text-muted small">
+                        💬 Discordコマンドを使用:<br>
+                        • `/tk-buy <数量>` - TKUC購入<br>
+                        • `/tk-buy-order <価格> <数量>` - 買い注文<br>
+                        • `/tk-sell-order <価格> <数量>` - 売り注文
                     </div>
                 </div>
 

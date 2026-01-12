@@ -213,13 +213,43 @@ ${isExtremeActivity ? '• チャットが非常に盛り上がっている！�
         const aiResponse = completion.choices[0].message.content.trim();
         console.log('🤖 AI分析結果:', aiResponse); // 完全なAIレスポンスを出力
 
-        const aiChange = parseFloat(aiResponse.replace(/[^\d.-]/g, ''));
+        // より堅牢な数値抽出（複数のパターンに対応）
+        let aiChange = null;
 
-        if (!isNaN(aiChange) && Math.abs(aiChange) <= 5) {
+        // パターン1: +2.5% や -1.8% の形式
+        const percentMatch = aiResponse.match(/([+-]?\d+\.?\d*)%/);
+        if (percentMatch) {
+          aiChange = parseFloat(percentMatch[1]);
+        }
+
+        // パターン2: 数値のみ（2.5 や -1.8）
+        if (aiChange === null) {
+          const numberMatch = aiResponse.match(/([+-]?\d+\.?\d*)/);
+          if (numberMatch) {
+            aiChange = parseFloat(numberMatch[1]);
+          }
+        }
+
+        // パターン3: 日本語の数値表現（上昇2.5% など）
+        if (aiChange === null) {
+          const japaneseMatch = aiResponse.match(/(\d+\.?\d*)%/);
+          if (japaneseMatch) {
+            const number = parseFloat(japaneseMatch[1]);
+            // 「上昇」なら正、「下降」なら負
+            if (aiResponse.includes('上昇') || aiResponse.includes('推奨') && !aiResponse.includes('下降')) {
+              aiChange = number;
+            } else if (aiResponse.includes('下降')) {
+              aiChange = -number;
+            }
+          }
+        }
+
+        if (aiChange !== null && !isNaN(aiChange) && Math.abs(aiChange) <= 8) {
           changePercent = aiChange;
           console.log(`✅ AIレート決定: ${changePercent.toFixed(2)}% (市場情報反映)`);
         } else {
           console.warn('⚠️ AIレスポンス無効、プログラム計算を使用');
+          console.warn('   レスポンス内容:', aiResponse);
           changePercent = (Math.random() - 0.5) * 10; // フォールバック
         }
 

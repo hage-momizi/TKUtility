@@ -7,12 +7,17 @@ const API_BASE = window.location.origin;
 
 // 初期化
 document.addEventListener('DOMContentLoaded', function() {
-    initializeChart();
-    loadInitialData();
-    startRealTimeUpdates();
+    try {
+        initializeChart();
+        loadInitialData();
+        startRealTimeUpdates();
 
-    // ページ離脱時に更新停止
-    window.addEventListener('beforeunload', stopRealTimeUpdates);
+        // ページ離脱時に更新停止
+        window.addEventListener('beforeunload', stopRealTimeUpdates);
+    } catch (error) {
+        console.error('初期化エラー:', error);
+        showError('チャートの初期化に失敗しました。ページをリロードしてください。');
+    }
 });
 
 // チャート初期化
@@ -294,8 +299,19 @@ function updateMarketNews(aiAnalysis) {
     }
 }
 
+// エラー表示関数
+function showError(message) {
+    const container = document.getElementById('market-news') || document.body;
+    container.innerHTML = `
+        <div class="alert alert-danger">
+            <i class="fas fa-exclamation-triangle"></i> ${message}
+        </div>
+    `;
+}
+
 // グローバル関数として公開
 window.setTimeframe = setTimeframe;
 window.quickBuy = quickBuy;
 window.quickSell = quickSell;
 window.updateMarketNews = updateMarketNews;
+window.showError = showError;
