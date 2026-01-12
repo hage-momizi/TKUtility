@@ -199,6 +199,8 @@ async function updateTKUCRate() {
         });
 
         const aiResponse = completion.choices[0].message.content.trim();
+        console.log('🤖 AI分析結果:', aiResponse); // 完全なAIレスポンスを出力
+
         const aiChange = parseFloat(aiResponse.replace(/[^\d.-]/g, ''));
 
         if (!isNaN(aiChange) && Math.abs(aiChange) <= 5) {
