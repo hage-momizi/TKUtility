@@ -11,6 +11,7 @@ const FILES = {
   USER_BALANCES: path.join(__dirname, '../userBalances.json'),
   TKUC_RATE: path.join(__dirname, '../tkucRate.json'),
   TRANSACTION_HISTORY: path.join(__dirname, '../transactionHistory.json'),
+  ORDER_BOOK: path.join(__dirname, '../orderBook.json'),
 };
 
 // AIレートリミット管理: userId -> [timestamp1, timestamp2, ...]

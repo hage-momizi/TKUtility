@@ -3,7 +3,7 @@ const { LavalinkManager } = require('lavalink-client');
 const schedule = require('node-schedule');
 const { startWebServer } = require('../webServer');
 const { startRealtimeMonitoring } = require('../modules/earthquakeService');
-const { updateTKUCRate } = require('../modules/economyService');
+const { updateTKUCRate, resetAllBalances } = require('../modules/economyService');
 const { FILES, LAVALINK_CONFIG } = require('../config/constants');
 const playLofiCommand = require('../commands/play-lofi');
 const newsTimesetCommand = require('../commands/news_timeset');
@@ -204,7 +204,17 @@ function setupSchedules(client) {
     }
   });
 
-  console.log('Scheduled jobs initialized: News notifications and TKUC rate updates');
+  // 月末リセットスケジュール（毎月1日の0時0分）
+  schedule.scheduleJob('0 0 1 * *', () => {
+    try {
+      resetAllBalances();
+      console.log('✅ 月末リセット実行完了');
+    } catch (error) {
+      console.error('月末リセットスケジュールエラー:', error);
+    }
+  });
+
+  console.log('Scheduled jobs initialized: News notifications, TKUC rate updates, and monthly reset');
 }
 
 module.exports = {

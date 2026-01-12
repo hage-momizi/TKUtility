@@ -611,6 +611,281 @@ function getTKUCRanking(limit = 10) {
 }
 
 /**
+ * オーダーID生成
+ * @returns {string} 一意のオーダーID
+ */
+function generateOrderId() {
+  return `order_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+}
+
+/**
+ * オーダーブックを取得
+ * @returns {object} オーダーブック
+ */
+function getOrderBook() {
+  const orderBook = loadJSON(FILES.ORDER_BOOK);
+  return orderBook || { buyOrders: [], sellOrders: [] };
+}
+
+/**
+ * オーダーブックを保存
+ * @param {object} orderBook - オーダーブック
+ */
+function saveOrderBook(orderBook) {
+  saveJSON(FILES.ORDER_BOOK, orderBook);
+}
+
+/**
+ * 買い注文追加
+ * @param {string} userId - ユーザーID
+ * @param {number} price - 注文価格
+ * @param {number} amount - 注文数量
+ * @returns {object} 結果
+ */
+function placeBuyOrder(userId, price, amount) {
+  const balance = getUserBalance(userId);
+  const totalCost = price * amount;
+
+  if (balance.tkup < totalCost) {
+    return { success: false, message: 'TKUP残高が不足しています。' };
+  }
+
+  // 注文追加
+  const orderBook = getOrderBook();
+  const order = {
+    id: generateOrderId(),
+    userId,
+    type: 'buy',
+    price,
+    amount,
+    remaining: amount,
+    timestamp: Date.now()
+  };
+
+  orderBook.buyOrders.push(order);
+  saveOrderBook(orderBook);
+
+  // マッチング実行
+  matchOrders();
+
+  return { success: true, message: `買い注文を追加しました。（ID: ${order.id}）` };
+}
+
+/**
+ * 売り注文追加
+ * @param {string} userId - ユーザーID
+ * @param {number} price - 注文価格
+ * @param {number} amount - 注文数量
+ * @returns {object} 結果
+ */
+function placeSellOrder(userId, price, amount) {
+  const balance = getUserBalance(userId);
+
+  if (balance.tkuc < amount) {
+    return { success: false, message: 'TKUC残高が不足しています。' };
+  }
+
+  // 注文追加
+  const orderBook = getOrderBook();
+  const order = {
+    id: generateOrderId(),
+    userId,
+    type: 'sell',
+    price,
+    amount,
+    remaining: amount,
+    timestamp: Date.now()
+  };
+
+  orderBook.sellOrders.push(order);
+  saveOrderBook(orderBook);
+
+  // マッチング実行
+  matchOrders();
+
+  return { success: true, message: `売り注文を追加しました。（ID: ${order.id}）` };
+}
+
+/**
+ * 注文キャンセル
+ * @param {string} userId - ユーザーID
+ * @param {string} orderId - 注文ID
+ * @returns {object} 結果
+ */
+function cancelOrder(userId, orderId) {
+  const orderBook = getOrderBook();
+  let found = false;
+
+  // 買い注文から検索・削除
+  orderBook.buyOrders = orderBook.buyOrders.filter(order => {
+    if (order.id === orderId && order.userId === userId) {
+      found = true;
+      return false; // 削除
+    }
+    return true;
+  });
+
+  // 売り注文から検索・削除
+  orderBook.sellOrders = orderBook.sellOrders.filter(order => {
+    if (order.id === orderId && order.userId === userId) {
+      found = true;
+      return false; // 削除
+    }
+    return true;
+  });
+
+  if (!found) {
+    return { success: false, message: '注文が見つからないか、権限がありません。' };
+  }
+
+  saveOrderBook(orderBook);
+  return { success: true, message: '注文をキャンセルしました。' };
+}
+
+/**
+ * オーダーマッチングエンジン
+ */
+function matchOrders() {
+  const orderBook = getOrderBook();
+
+  // 買い注文を価格降順でソート（高い価格優先）
+  orderBook.buyOrders.sort((a, b) => b.price - a.price);
+  // 売り注文を価格昇順でソート（安い価格優先）
+  orderBook.sellOrders.sort((a, b) => a.price - b.price);
+
+  const matchedTrades = [];
+
+  for (const buyOrder of orderBook.buyOrders) {
+    if (buyOrder.remaining <= 0) continue;
+
+    for (const sellOrder of orderBook.sellOrders) {
+      if (sellOrder.remaining <= 0) continue;
+
+      // マッチング条件: 買い価格 >= 売り価格
+      if (buyOrder.price >= sellOrder.price) {
+        const tradeAmount = Math.min(buyOrder.remaining, sellOrder.remaining);
+        const tradePrice = sellOrder.price; // 売り手の価格で約定
+
+        // 取引実行
+        executeTrade(buyOrder, sellOrder, tradeAmount, tradePrice);
+        matchedTrades.push({ buyOrder: buyOrder.id, sellOrder: sellOrder.id, amount: tradeAmount, price: tradePrice });
+
+        // 注文残高更新
+        buyOrder.remaining -= tradeAmount;
+        sellOrder.remaining -= tradeAmount;
+      }
+    }
+  }
+
+  // 完了した注文を削除
+  orderBook.buyOrders = orderBook.buyOrders.filter(order => order.remaining > 0);
+  orderBook.sellOrders = orderBook.sellOrders.filter(order => order.remaining > 0);
+
+  saveOrderBook(orderBook);
+
+  // レート更新（取引があった場合）
+  if (matchedTrades.length > 0) {
+    updateRateFromTrades(matchedTrades);
+  }
+}
+
+/**
+ * 取引実行
+ * @param {object} buyOrder - 買い注文
+ * @param {object} sellOrder - 売り注文
+ * @param {number} amount - 取引数量
+ * @param {number} price - 取引価格
+ */
+function executeTrade(buyOrder, sellOrder, amount, price) {
+  const totalCost = amount * price;
+
+  // 買い手: TKUP支払い、TKUC受け取り
+  const buyerBalance = getUserBalance(buyOrder.userId);
+  buyerBalance.tkup -= totalCost;
+  buyerBalance.tkuc += amount;
+  saveUserBalance(buyOrder.userId, buyerBalance);
+
+  // 売り手: TKUC支払い、TKUP受け取り
+  const sellerBalance = getUserBalance(sellOrder.userId);
+  sellerBalance.tkuc -= amount;
+  sellerBalance.tkup += totalCost;
+  saveUserBalance(sellOrder.userId, sellerBalance);
+
+  // 取引履歴記録
+  recordTransaction(buyOrder.userId, 'market_buy', { tkucAmount: amount, tkupCost: totalCost, price });
+  recordTransaction(sellOrder.userId, 'market_sell', { tkucAmount: amount, tkupEarned: totalCost, price });
+
+  console.log(`取引成立: ${amount} TKUC @ ${price} TKUP (${buyOrder.userId} ← ${sellOrder.userId})`);
+}
+
+/**
+ * 取引情報からレート更新
+ * @param {Array} trades - 取引情報
+ */
+function updateRateFromTrades(trades) {
+  if (trades.length === 0) return;
+
+  // 最新取引価格でレート更新
+  const latestTrade = trades[trades.length - 1];
+  const rateData = loadJSON(FILES.TKUC_RATE);
+
+  rateData.currentRate = Math.round(latestTrade.price * 100) / 100;
+  rateData.lastUpdate = Date.now();
+  rateData.history = rateData.history || [];
+  rateData.history.push({ timestamp: Date.now(), rate: rateData.currentRate });
+
+  // 履歴を最新50件に制限
+  if (rateData.history.length > 50) {
+    rateData.history = rateData.history.slice(-50);
+  }
+
+  saveJSON(FILES.TKUC_RATE, rateData);
+  console.log(`市場レート更新: ${rateData.currentRate} TKUP（取引価格反映）`);
+}
+
+/**
+ * オーダー板表示
+ * @returns {string} フォーマット済みオーダー板
+ */
+function formatOrderBook() {
+  const orderBook = getOrderBook();
+
+  let result = '**📊 オーダー板**\n\n';
+
+  // 買い注文（ベスト5）
+  result += '**買い注文（高い価格順）**\n';
+  const topBuyOrders = orderBook.buyOrders
+    .sort((a, b) => b.price - a.price)
+    .slice(0, 5);
+
+  if (topBuyOrders.length === 0) {
+    result += '注文なし\n';
+  } else {
+    topBuyOrders.forEach(order => {
+      result += `${order.price} TKUP × ${order.remaining} TKUC\n`;
+    });
+  }
+
+  result += '\n';
+
+  // 売り注文（ベスト5）
+  result += '**売り注文（安い価格順）**\n';
+  const topSellOrders = orderBook.sellOrders
+    .sort((a, b) => a.price - b.price)
+    .slice(0, 5);
+
+  if (topSellOrders.length === 0) {
+    result += '注文なし\n';
+  } else {
+    topSellOrders.forEach(order => {
+      result += `${order.price} TKUP × ${order.remaining} TKUC\n`;
+    });
+  }
+
+  return result;
+}
+
+/**
  * AI接続テスト（デバッグ用）
  */
 async function testAIConnection() {
@@ -638,6 +913,30 @@ async function testAIConnection() {
   console.log('🧪 AI接続テスト完了');
 }
 
+/**
+ * 月末リセット処理
+ * 全ユーザーのTKUPとTKUCを0にリセット
+ */
+function resetAllBalances() {
+  const balances = loadJSON(FILES.USER_BALANCES);
+
+  // 全ユーザーの残高をリセット
+  for (const userId in balances) {
+    if (balances[userId]) {
+      balances[userId].tkup = 0;
+      balances[userId].tkuc = 0;
+      // earnedHistoryは残す（統計用）
+    }
+  }
+
+  saveJSON(FILES.USER_BALANCES, balances);
+  console.log('✅ 月末リセット: 全ユーザー残高を0にリセット');
+
+  // オーダーブックもクリア
+  saveJSON(FILES.ORDER_BOOK, { buyOrders: [], sellOrders: [] });
+  console.log('✅ オーダーブックをクリア');
+}
+
 module.exports = {
   getUserBalance,
   saveUserBalance,
@@ -656,6 +955,7 @@ module.exports = {
   generateRateChart,
   getTKUPRanking,
   getTKUCRanking,
+  resetAllBalances,
   testRateUpdate, // デバッグ用
   testAIConnection, // デバッグ用
 };

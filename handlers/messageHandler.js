@@ -46,7 +46,12 @@ const commandHandlers = {
   'tk-send-tkuc': () => require('../commands/tk-send-tkuc'),
   'tk-withdraw': () => require('../commands/tk-withdraw'),
   'tk-market': () => require('../commands/tk-market'),
-  'tk-gamble': () => require('../commands/tk-gamble')
+  'tk-gamble': () => require('../commands/tk-gamble'),
+  'tk-leaderboard': () => require('../commands/tk-leaderboard'),
+  'tk-buy-order': () => require('../commands/tk-buy-order'),
+  'tk-sell-order': () => require('../commands/tk-sell-order'),
+  'tk-orders': () => require('../commands/tk-orders'),
+  'tk-cancel-order': () => require('../commands/tk-cancel-order')
 };
 
 /**
