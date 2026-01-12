@@ -136,17 +136,33 @@ async function registerCommands(client) {
     const commandFiles = fs.readdirSync(commandsDir).filter(file => file.endsWith('.js'));
 
     const commands = [];
+    const failedCommands = [];
+    
     for (const file of commandFiles) {
-      const commandModule = require(path.join(commandsDir, file));
-      if (commandModule.command) {
-        commands.push(commandModule.command.toJSON());
+      try {
+        const commandModule = require(path.join(commandsDir, file));
+        if (commandModule.command) {
+          commands.push(commandModule.command.toJSON());
+          console.log(`✓ Loaded: ${file}`);
+        } else {
+          console.warn(`✗ No command export in: ${file}`);
+          failedCommands.push(file);
+        }
+      } catch (err) {
+        console.error(`✗ Error loading ${file}:`, err.message);
+        failedCommands.push(file);
       }
     }
 
+    console.log(`\nRegistering ${commands.length} commands...`);
     await rest.put(Routes.applicationCommands(client.user.id), { body: commands });
-    console.log('Slash commands registered.');
+    console.log(`✓ Successfully registered ${commands.length} slash commands.`);
+    
+    if (failedCommands.length > 0) {
+      console.warn(`⚠ Failed to load ${failedCommands.length} commands: ${failedCommands.join(', ')}`);
+    }
   } catch (error) {
-    console.error(error);
+    console.error('Error registering commands:', error);
   }
 }
 

@@ -4,10 +4,21 @@ const OpenAI = require('openai');
 const { createCanvas } = require('canvas');
 
 // OpenRouterクライアント初期化
-const openRouterClient = new OpenAI({
-  baseURL: 'https://openrouter.ai/api/v1',
-  apiKey: process.env.OPENROUTER_API_KEY,
-});
+let openRouterClient = null;
+
+try {
+  if (process.env.OPENROUTER_API_KEY) {
+    openRouterClient = new OpenAI({
+      baseURL: 'https://openrouter.ai/api/v1',
+      apiKey: process.env.OPENROUTER_API_KEY,
+    });
+    console.log('✓ OpenRouter client initialized');
+  } else {
+    console.warn('⚠ OPENROUTER_API_KEY not found in environment');
+  }
+} catch (err) {
+  console.warn('⚠ Error initializing OpenRouter client:', err.message);
+}
 
 /**
  * ユーザー残高を取得
@@ -105,6 +116,11 @@ function getTKUCRate() {
  */
 async function updateTKUCRate() {
   try {
+    if (!openRouterClient) {
+      console.warn('OpenRouter client not available, skipping rate update');
+      return;
+    }
+
     const currentRate = getTKUCRate();
     const rateData = loadJSON(FILES.TKUC_RATE);
 
