@@ -18,7 +18,13 @@ const client = new Client({
 client.once(Events.ClientReady, () => initializeBot(client));
 
 // インタラクションイベント（スラッシュコマンド）
-client.on(Events.InteractionCreate, (interaction) => handleInteraction(interaction, client));
+client.on(Events.InteractionCreate, async (interaction) => {
+  try {
+    await handleInteraction(interaction, client);
+  } catch (error) {
+    console.error('Error handling interaction:', error);
+  }
+});
 
 // メッセージイベント（ピン止め更新、TKUP獲得、AIチャット）
 client.on(Events.MessageCreate, async (message) => {
