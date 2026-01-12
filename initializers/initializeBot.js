@@ -137,7 +137,7 @@ async function registerCommands(client) {
 
     const commands = [];
     const failedCommands = [];
-    
+
     for (const file of commandFiles) {
       try {
         const commandModule = require(path.join(commandsDir, file));
@@ -157,7 +157,7 @@ async function registerCommands(client) {
     console.log(`\nRegistering ${commands.length} commands...`);
     await rest.put(Routes.applicationCommands(client.user.id), { body: commands });
     console.log(`✓ Successfully registered ${commands.length} slash commands.`);
-    
+
     if (failedCommands.length > 0) {
       console.warn(`⚠ Failed to load ${failedCommands.length} commands: ${failedCommands.join(', ')}`);
     }
