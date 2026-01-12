@@ -22,7 +22,7 @@ module.exports = {
           .setTitle('✅ 出金完了')
           .setDescription(result.message)
           .addFields(
-            { name: '出金額', value: `${result.withdrawn}円`, inline: true },
+            { name: '出金額', value: `${result.withdrawn} TKUP相当`, inline: true },
             { name: '手数料', value: '10%', inline: true }
           )
           .setColor(0x00ff00)

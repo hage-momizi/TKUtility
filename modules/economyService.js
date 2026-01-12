@@ -170,8 +170,8 @@ async function updateTKUCRate() {
       sellPressure: marketData.sellPressure
     });
 
-    // レート範囲チェック（最低100 TKUP、最高2000 TKUP）
-    const clampedRate = Math.max(100, Math.min(2000, newRate));
+    // レート範囲チェック（最低100 TKUP、最高1000 TKUP）
+    const clampedRate = Math.max(100, Math.min(1000, newRate));
 
     // レート更新
     rateData.currentRate = Math.round(clampedRate * 100) / 100; // 小数点2桁
@@ -384,7 +384,7 @@ function withdrawTKUP(userId, amount) {
 
   return {
     success: true,
-    message: `${withdrawAmount}円を出金しました。（手数料10%）`,
+    message: `${withdrawAmount} TKUP相当を出金しました。（手数料10%）`,
     withdrawn: withdrawAmount
   };
 }
