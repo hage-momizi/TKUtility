@@ -1,6 +1,7 @@
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const {
-  playBlackjack,
+  startBlackjack,
+  playBlackjackAction,
   playSlot,
   playRoulette,
   startKakeGame,
@@ -79,8 +80,28 @@ module.exports = {
 
       switch (game) {
         case 'blackjack':
-          result = playBlackjack(interaction.user.id, amount, currency);
+          result = startBlackjack(interaction.user.id, amount, currency);
           embed.setDescription('🃏 ブラックジャック');
+
+          // インタラクティブな場合はボタンを追加
+          if (result.interactive) {
+            const row = new ActionRowBuilder()
+              .addComponents(
+                new ButtonBuilder()
+                  .setLabel('ヒット（追加カード）')
+                  .setStyle(ButtonStyle.Primary)
+                  .setCustomId(`bj_hit_${result.sessionId}`),
+                new ButtonBuilder()
+                  .setLabel('スタンド（止める）')
+                  .setStyle(ButtonStyle.Secondary)
+                  .setCustomId(`bj_stand_${result.sessionId}`)
+              );
+
+            return await interaction.reply({
+              embeds: [embed.addFields({ name: '結果', value: result.message, inline: false })],
+              components: [row]
+            });
+          }
           break;
 
         case 'slot':
@@ -124,10 +145,58 @@ module.exports = {
                   .setCustomId(`kake_join_${result.gameId}`)
               );
 
-            return await interaction.reply({
+            const message = await interaction.reply({
               embeds: [embed],
               components: [row]
             });
+
+            // 制限時間監視
+            const gameId = result.gameId;
+            const timeoutMs = 60 * 1000; // 1分
+
+            setTimeout(async () => {
+              try {
+                const { gameSessions } = require('../modules/casinoService');
+                const gameSession = gameSessions.get(gameId);
+
+                if (gameSession && gameSession.status === 'waiting') {
+                  // まだ開始されていない場合、時間切れ処理
+                  const timeoutEmbed = new EmbedBuilder()
+                    .setTitle('🎲 掛け金ゲーム - 時間切れ')
+                    .setDescription('参加者が集まらなかったため、ゲームはキャンセルされました。')
+                    .setColor(0xdc3545)
+                    .addFields(
+                      { name: 'ゲームID', value: gameId, inline: true },
+                      { name: '返金額', value: `${amount} ${currency}`, inline: true },
+                      { name: '理由', value: '参加者不足', inline: true }
+                    );
+
+                  // 掛け金を返金
+                  const { getUserBalance, saveUserBalance } = require('../modules/economyService');
+                  gameSession.participants.forEach(participantId => {
+                    const balance = getUserBalance(participantId);
+                    if (currency === 'TKUP') {
+                      balance.tkup += amount;
+                    } else {
+                      balance.tkuc += amount;
+                    }
+                    saveUserBalance(participantId, balance);
+                  });
+
+                  // セッション削除
+                  gameSessions.delete(gameId);
+
+                  await message.edit({
+                    embeds: [timeoutEmbed],
+                    components: [] // ボタン削除
+                  });
+                }
+              } catch (error) {
+                console.error('Kake game timeout error:', error);
+              }
+            }, timeoutMs);
+
+            return;
           }
           break;
 

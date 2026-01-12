@@ -228,6 +228,119 @@ async function handleTKUPGain(message) {
 }
 
 /**
+ * 革命失敗監視処理
+ * @param {Message} message - Discordメッセージ
+ */
+async function handleRevolutionFailure(message) {
+  // 特定のボットIDを監視
+  const targetBotId = '1444221679176781915';
+
+  if (message.author.id !== targetBotId) return;
+
+  // embedに「革命失敗」が含まれているかチェック
+  if (message.embeds && message.embeds.length > 0) {
+    const hasRevolutionFailure = message.embeds.some(embed => {
+      const title = embed.title || '';
+      const description = embed.description || '';
+      const fields = embed.fields || [];
+
+      // タイトル、説明、フィールドに「革命失敗」が含まれるかチェック
+      return title.includes('革命失敗') ||
+             description.includes('革命失敗') ||
+             fields.some(field => field.name?.includes('革命失敗') || field.value?.includes('革命失敗'));
+    });
+
+    if (hasRevolutionFailure) {
+      console.log('🚨 革命失敗検知！レート暴落イベント発動');
+
+      // レート暴落処理
+      await triggerRateCrash();
+
+      // 通知メッセージ
+      try {
+        await message.channel.send({
+          embeds: [{
+            title: '🚨 革命失敗イベント発生！',
+            description: '外部ボットからの革命失敗信号を検知しました。\nTKUCレートが暴落します！',
+            color: 0xdc3545,
+            fields: [
+              { name: '📉 影響', value: 'レートが大幅に下落', inline: true },
+              { name: '⏰ 期間', value: '即時反映', inline: true },
+              { name: '🎯 原因', value: '革命失敗イベント', inline: true }
+            ],
+            timestamp: new Date()
+          }]
+        });
+      } catch (error) {
+        console.error('革命失敗通知エラー:', error);
+      }
+    }
+  }
+}
+
+/**
+ * レート暴落処理
+ */
+async function triggerRateCrash() {
+  try {
+    const { loadJSON, saveJSON } = require('./fileStorage');
+    const { FILES } = require('../config/constants');
+
+    const rateData = loadJSON(FILES.TKUC_RATE);
+    const currentRate = rateData.currentRate || 500;
+
+    // 暴落率：-30%～-50%
+    const crashPercent = -(30 + Math.random() * 20); // -30% to -50%
+    const newRate = Math.max(100, currentRate * (1 + crashPercent / 100)); // 最低100 TKUP
+
+    console.log(`💥 レート暴落: ${currentRate} → ${newRate.toFixed(2)} TKUP (${crashPercent.toFixed(1)}%)`);
+
+    // レート更新
+    rateData.currentRate = Math.round(newRate * 100) / 100;
+    rateData.lastUpdate = Date.now();
+    rateData.history = rateData.history || [];
+    rateData.history.push({
+      timestamp: Date.now(),
+      rate: rateData.currentRate,
+      event: 'revolution_failure'
+    });
+
+    // 履歴を最新50件に制限
+    if (rateData.history.length > 50) {
+      rateData.history = rateData.history.slice(-50);
+    }
+
+    saveJSON(FILES.TKUC_RATE, rateData);
+
+    // 暴落イベント記録
+    recordCrashEvent(crashPercent, currentRate, rateData.currentRate);
+
+  } catch (error) {
+    console.error('レート暴落処理エラー:', error);
+  }
+}
+
+/**
+ * 暴落イベント記録
+ * @param {number} crashPercent - 暴落率
+ * @param {number} beforeRate - 暴落前レート
+ * @param {number} afterRate - 暴落後レート
+ */
+function recordCrashEvent(crashPercent, beforeRate, afterRate) {
+  const { recordTransaction } = require('./economyService');
+
+  // システムイベントとして記録
+  recordTransaction('system', 'rate_crash', {
+    crashPercent,
+    beforeRate,
+    afterRate,
+    reason: 'revolution_failure'
+  });
+
+  console.log(`📊 暴落イベント記録: ${crashPercent.toFixed(1)}% (${beforeRate} → ${afterRate})`);
+}
+
+/**
  * ピン止めメッセージの更新処理
  * @param {Message} message - Discordメッセージ
  */
@@ -341,6 +454,59 @@ async function handleInteraction(interaction, client) {
         console.error('Kake game join error:', error);
         await interaction.reply({
           content: 'ゲーム参加中にエラーが発生しました。',
+          ephemeral: true
+        });
+      }
+    } else if (customId.startsWith('bj_hit_') || customId.startsWith('bj_stand_')) {
+      const sessionId = customId.replace(/^(bj_hit_|bj_stand_)/, '');
+      const action = customId.startsWith('bj_hit_') ? 'hit' : 'stand';
+      const { playBlackjackAction } = require('../modules/casinoService');
+
+      try {
+        const result = playBlackjackAction(sessionId, action);
+
+        if (result.interactive) {
+          // ゲーム継続
+          const embed = new EmbedBuilder()
+            .setTitle('🎰 カジノゲーム')
+            .setDescription('🃏 ブラックジャック')
+            .setColor(0xFFD700)
+            .addFields({ name: '結果', value: result.message, inline: false });
+
+          const row = new ActionRowBuilder()
+            .addComponents(
+              new ButtonBuilder()
+                .setLabel('ヒット（追加カード）')
+                .setStyle(ButtonStyle.Primary)
+                .setCustomId(`bj_hit_${result.sessionId}`),
+              new ButtonBuilder()
+                .setLabel('スタンド（止める）')
+                .setStyle(ButtonStyle.Secondary)
+                .setCustomId(`bj_stand_${result.sessionId}`)
+            );
+
+          await interaction.update({
+            embeds: [embed],
+            components: [row]
+          });
+        } else {
+          // ゲーム終了
+          const embed = new EmbedBuilder()
+            .setTitle('🎰 カジノゲーム')
+            .setDescription('🃏 ブラックジャック')
+            .setColor(result.winnings > 0 ? 0x28a745 : result.winnings === 0 ? 0x6c757d : 0xdc3545)
+            .addFields({ name: '結果', value: result.message, inline: false });
+
+          await interaction.update({
+            embeds: [embed],
+            components: [] // ボタン削除
+          });
+        }
+
+      } catch (error) {
+        console.error('Blackjack action error:', error);
+        await interaction.reply({
+          content: 'ブラックジャック実行中にエラーが発生しました。',
           ephemeral: true
         });
       }

@@ -7,14 +7,17 @@ const { getUserBalance, saveUserBalance, recordTransaction } = require('./econom
 // ゲームセッション管理
 const gameSessions = new Map();
 
+// ブラックジャックゲームセッション管理
+const blackjackSessions = new Map();
+
 /**
- * ブラックジャックゲーム
+ * ブラックジャックゲーム開始
  * @param {string} userId - ユーザーID
  * @param {number} betAmount - ベット額
  * @param {string} currency - 通貨タイプ
  * @returns {object} 結果
  */
-function playBlackjack(userId, betAmount, currency) {
+function startBlackjack(userId, betAmount, currency) {
   const balance = getUserBalance(userId);
 
   // 残高チェック
@@ -29,78 +32,186 @@ function playBlackjack(userId, betAmount, currency) {
 
   // ゲーム開始
   const playerCards = dealCards(2);
-  const dealerCards = dealCards(2);
+  const dealerCards = dealCards(1); // ディーラーは1枚のみ表
+  const dealerHiddenCard = dealCards(1)[0]; // 隠しカード
 
   const playerScore = calculateScore(playerCards);
-  let dealerScore = calculateScore(dealerCards);
+  const dealerVisibleScore = calculateScore(dealerCards);
+
+  // ブラックジャック判定（プレイヤーのみ）
+  const isBlackjack = playerCards.length === 2 && playerScore === 21;
+
+  const sessionId = `bj_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+  const session = {
+    id: sessionId,
+    userId,
+    betAmount,
+    currency,
+    fee,
+    netBet,
+    playerCards,
+    dealerCards,
+    dealerHiddenCard,
+    playerScore,
+    dealerVisibleScore,
+    isBlackjack,
+    status: isBlackjack ? 'blackjack' : 'playing',
+    createdAt: Date.now()
+  };
+
+  blackjackSessions.set(sessionId, session);
+
+  let message = `🃏 ブラックジャックを開始しました！\n\n` +
+                `あなたのカード: ${formatCards(playerCards)} (${playerScore}点)\n` +
+                `ディーラーのカード: ${formatCards(dealerCards)} + [隠し] (${dealerVisibleScore}+?点)\n\n`;
+
+  if (isBlackjack) {
+    message += `🎉 ブラックジャック！ 自動勝利です！`;
+    return finishBlackjack(sessionId, 'stand');
+  } else {
+    message += `ヒット（追加カード）またはスタンド（止める）を選択してください。`;
+  }
+
+  return {
+    success: true,
+    message,
+    sessionId,
+    interactive: true
+  };
+}
+
+/**
+ * ブラックジャック行動実行
+ * @param {string} sessionId - セッションID
+ * @param {string} action - 行動（hit/stand）
+ * @returns {object} 結果
+ */
+function playBlackjackAction(sessionId, action) {
+  const session = blackjackSessions.get(sessionId);
+  if (!session) {
+    return { success: false, message: 'ゲームセッションが見つかりません。' };
+  }
+
+  if (session.status !== 'playing') {
+    return { success: false, message: 'このゲームは既に終了しています。' };
+  }
+
+  if (action === 'hit') {
+    // ヒット：カードを1枚追加
+    const newCard = dealCard();
+    session.playerCards.push(newCard);
+    session.playerScore = calculateScore(session.playerCards);
+
+    if (session.playerScore > 21) {
+      // バースト
+      return finishBlackjack(sessionId, 'bust');
+    } else {
+      // 継続
+      return {
+        success: true,
+        message: `ヒットしました！\n\n` +
+                 `あなたのカード: ${formatCards(session.playerCards)} (${session.playerScore}点)\n` +
+                 `ディーラーのカード: ${formatCards(session.dealerCards)} + [隠し] (${session.dealerVisibleScore}+?点)\n\n` +
+                 `ヒットまたはスタンドを選択してください。`,
+        sessionId,
+        interactive: true
+      };
+    }
+  } else if (action === 'stand') {
+    // スタンド：ディーラーのターン
+    return finishBlackjack(sessionId, 'stand');
+  }
+
+  return { success: false, message: '無効な行動です。' };
+}
+
+/**
+ * ブラックジャックゲーム終了
+ * @param {string} sessionId - セッションID
+ * @param {string} reason - 終了理由
+ * @returns {object} 結果
+ */
+function finishBlackjack(sessionId, reason) {
+  const session = blackjackSessions.get(sessionId);
+  if (!session) {
+    return { success: false, message: 'ゲームセッションが見つかりません。' };
+  }
+
+  // ディーラーの隠しカードを公開
+  session.dealerCards.push(session.dealerHiddenCard);
+  let dealerScore = calculateScore(session.dealerCards);
 
   // ディーラールール：17以上でストップ
   while (dealerScore < 17) {
-    dealerCards.push(dealCard());
-    dealerScore = calculateScore(dealerCards);
+    session.dealerCards.push(dealCard());
+    dealerScore = calculateScore(session.dealerCards);
   }
 
   // 勝敗判定
   let result, winnings = 0;
 
-  if (playerScore > 21) {
+  if (reason === 'bust') {
     result = 'lose';
     winnings = 0;
+  } else if (session.isBlackjack) {
+    result = 'blackjack';
+    winnings = session.netBet * 1.5; // 3:2
   } else if (dealerScore > 21) {
     result = 'win';
-    winnings = netBet; // 1:1
-  } else if (playerScore > dealerScore) {
+    winnings = session.netBet; // 1:1
+  } else if (session.playerScore > dealerScore) {
     result = 'win';
-    winnings = netBet; // 1:1
-  } else if (playerScore === dealerScore) {
+    winnings = session.netBet; // 1:1
+  } else if (session.playerScore === dealerScore) {
     result = 'tie';
-    winnings = netBet * 0.5; // プッシュ（掛け金半分返却）
+    winnings = session.netBet * 0.5; // プッシュ
   } else {
     result = 'lose';
     winnings = 0;
-  }
-
-  // ブラックジャック判定（21ポイント）
-  if (playerCards.length === 2 && playerScore === 21 && dealerScore !== 21) {
-    result = 'blackjack';
-    winnings = netBet * 1.5; // 3:2
   }
 
   // 残高更新
-  if (currency === 'TKUP') {
-    balance.tkup -= betAmount;
+  const balance = getUserBalance(session.userId);
+  if (session.currency === 'TKUP') {
+    balance.tkup -= session.betAmount;
     if (winnings > 0) balance.tkup += winnings;
   } else {
-    balance.tkuc -= betAmount;
+    balance.tkuc -= session.betAmount;
     if (winnings > 0) balance.tkuc += winnings;
   }
 
-  saveUserBalance(userId, balance);
+  saveUserBalance(session.userId, balance);
 
   // 取引記録
-  recordTransaction(userId, 'casino_blackjack', {
-    betAmount,
-    currency,
-    fee,
+  recordTransaction(session.userId, 'casino_blackjack', {
+    betAmount: session.betAmount,
+    currency: session.currency,
+    fee: session.fee,
     result,
     winnings,
-    playerCards,
-    dealerCards
+    playerCards: session.playerCards,
+    dealerCards: session.dealerCards,
+    actions: reason
   });
+
+  // セッション削除
+  blackjackSessions.delete(sessionId);
 
   const resultText = {
     win: '勝利',
     lose: '敗北',
     tie: 'プッシュ',
-    blackjack: 'ブラックジャック'
+    blackjack: 'ブラックジャック',
+    bust: 'バースト'
   }[result];
 
   return {
     success: true,
     message: `ブラックジャック: ${resultText}\n` +
-             `あなたのカード: ${formatCards(playerCards)} (${playerScore}点)\n` +
-             `ディーラーのカード: ${formatCards(dealerCards)} (${dealerScore}点)\n` +
-             `ベット: ${betAmount} ${currency} | 手数料: ${fee} ${currency} | 獲得: ${winnings} ${currency}`,
+             `あなたのカード: ${formatCards(session.playerCards)} (${session.playerScore}点)\n` +
+             `ディーラーのカード: ${formatCards(session.dealerCards)} (${dealerScore}点)\n` +
+             `ベット: ${session.betAmount} ${session.currency} | 手数料: ${session.fee} ${session.currency} | 獲得: ${winnings} ${session.currency}`,
     result,
     winnings
   };
@@ -514,7 +625,9 @@ function formatCards(cards) {
 }
 
 module.exports = {
-  playBlackjack,
+  startBlackjack,
+  playBlackjackAction,
+  finishBlackjack,
   playSlot,
   playRoulette,
   startKakeGame,

@@ -171,28 +171,35 @@ async function updateTKUCRate() {
         }
 
         const aiPrompt = `
-現在のTKUCレート: ${currentRate} TKUP
+あなたは経済AIで、TKUC仮想通貨のレート変動を決定します。
 
-市場状況:
+現在の市場状況:
+- TKUCレート: ${currentRate} TKUP
 - 買い注文数: ${marketData.buyPressure}
 - 売り注文数: ${marketData.sellPressure}
 - 総TKUP保有: ${marketData.totalTKUP}
 - 総TKUC保有: ${marketData.totalTKUC}
-- チャット盛り上がり度: ${chatActivity.toFixed(1)}/100 ${isExtremeActivity ? '🔥 非常に活発！' : ''}
-- 上位3人保有割合: ${(top3Ratio * 100).toFixed(1)}% ${isHighConcentration ? '⚠️ 集中度高！' : ''}
-- 最近の取引数: ${recentTrades}件 ${isVeryActiveTrading ? '🚀 取引活発！' : ''}
+- チャット盛り上がり度: ${chatActivity.toFixed(1)}/100
+- 上位3人保有割合: ${(top3Ratio * 100).toFixed(1)}%
+- 最近の取引数: ${recentTrades}件
 
-特別状況:
-${isExtremeActivity ? '• チャットが非常に盛り上がっている！積極的なレート上昇を検討\n' : ''}${isHighConcentration ? '• 保有が集中化している！下降圧力を強める\n' : ''}${isVeryActiveTrading ? '• 取引が非常に活発！市場反応を強化\n' : ''}
+経済分析:
+- 買い圧力: ${marketData.buyPressure > marketData.sellPressure ? '強い（上昇要因）' : marketData.buyPressure < marketData.sellPressure ? '弱い（下降要因）' : '均衡'}
+- チャット活性: ${chatActivity > 80 ? '非常に高い（大幅上昇要因）' : chatActivity > 50 ? '高い（上昇要因）' : chatActivity > 20 ? '普通' : '低い（下降要因）'}
+- 保有集中度: ${top3Ratio > 0.8 ? '非常に高い（下降要因）' : top3Ratio > 0.7 ? '高い（微妙下降要因）' : '正常'}
+- 取引活発度: ${recentTrades > 20 ? '非常に高い（上昇要因）' : recentTrades > 10 ? '高い（微妙上昇要因）' : '低い'}
 
-レート変動要因:
-- 買い圧力: ${marketData.buyPressure > marketData.sellPressure ? '強' : '弱'}
-- 売り圧力: ${marketData.sellPressure > marketData.buyPressure ? '強' : '弱'}
-- チャット活性: ${chatActivity > 50 ? '高' : chatActivity > 80 ? '非常に高' : '低'}
-- 保有集中度: ${top3Ratio > 0.7 ? '高' : top3Ratio > 0.8 ? '非常に高' : '低'}
-- 取引活発度: ${recentTrades > 10 ? '高' : recentTrades > 20 ? '非常に高' : '低'}
+決定指針:
+- チャット盛り上がりが低い場合: 下降または小幅変動を推奨
+- 保有集中度が高い場合: 下降を推奨して分散を促す
+- 買い圧力が弱い場合: 下降または安定を推奨
+- 市場が静かな場合: 小幅変動または下降を推奨
+- 極端な上昇は避け、安定した市場を目指す
 
-Rate change percentage (-${maxVariation} to +${maxVariation}):
+レート変動率を-8%から+8%の範囲で決定してください。
+現在の市場は${chatActivity < 30 ? '非常に静か' : chatActivity < 60 ? '普通' : '活発'}です。
+
+数値のみで回答（例: 2.5 または -1.8）:
 `;
 
         const aiConfig = loadJSON(FILES.AI_CONFIG) || { provider: 'openrouter' };
