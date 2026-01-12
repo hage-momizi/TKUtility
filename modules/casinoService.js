@@ -110,7 +110,8 @@ function playBlackjackAction(sessionId, action) {
       // 継続
       return {
         success: true,
-        message: `ヒットしました！\n\n` +
+        message: `ヒットしました！\n` +
+                 `引いたカード: ${formatCards([newCard])}\n\n` +
                  `あなたのカード: ${formatCards(session.playerCards)} (${session.playerScore}点)\n` +
                  `ディーラーのカード: ${formatCards(session.dealerCards)} + [隠し] (${session.dealerVisibleScore}+?点)\n\n` +
                  `ヒットまたはスタンドを選択してください。`,
