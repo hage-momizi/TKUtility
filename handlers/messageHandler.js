@@ -56,7 +56,8 @@ const commandHandlers = {
   'tk-cancel-order': () => require('../commands/tk-cancel-order'),
   'tk-kajino': () => require('../commands/tk-kajino'),
   'tk-itembuy': () => require('../commands/tk-itembuy'),
-  'tk-itemhelp': () => require('../commands/tk-itemhelp')
+  'tk-itemhelp': () => require('../commands/tk-itemhelp'),
+  'tk-sell': () => require('../commands/tk-sell')
 };
 
 /**
