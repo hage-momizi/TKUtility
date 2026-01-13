@@ -3,179 +3,268 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TKUC レートチャート - TK Utility</title>
+    <title>TKUC Market Terminal - Real-time Rate Chart</title>
+    <!-- CSS Dependencies -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/date-fns@2.29.3/index.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@2.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono&display=swap" rel="stylesheet">
+
     <style>
-        .chart-container {
+        :root {
+            --bg-dark: #0b0e11;
+            --card-bg: #181a20;
+            --primary-color: #f0b90b; /* Exchange Gold */
+            --text-main: #eaecef;
+            --text-muted: #848e9c;
+            --up-color: #0ecb81;
+            --down-color: #f6465d;
+            --border-color: #2b2f36;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+        }
+
+        /* Navbar Customization */
+        .navbar {
+            background-color: var(--card-bg);
+            border-bottom: 1px solid var(--border-color);
+            padding: 0.75rem 1.5rem;
+        }
+
+        .navbar-brand {
+            font-weight: 700;
+            color: var(--primary-color) !important;
+            letter-spacing: -0.5px;
+        }
+
+        .price-ticker {
+            font-family: 'JetBrains+Mono', monospace;
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
+        /* Layout Components */
+        .main-container {
+            padding: 20px;
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        .glass-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            overflow: hidden;
+            height: 100%;
+        }
+
+        .card-header-custom {
+            padding: 15px 20px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* Stats Section */
+        .market-summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .summary-item {
+            background: var(--card-bg);
+            padding: 15px 20px;
+            border-radius: 10px;
+            border: 1px solid var(--border-color);
+        }
+
+        .summary-label {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            margin-bottom: 5px;
+        }
+
+        .summary-value {
+            font-size: 1.25rem;
+            font-weight: 600;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Chart Customization */
+        .chart-wrapper {
+            padding: 20px;
+            height: 500px;
             position: relative;
-            height: 400px;
-            margin-bottom: 20px;
         }
-        .market-stats {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border-radius: 10px;
-            padding: 20px;
-            margin-bottom: 20px;
-            color: white;
+
+        /* Order Book Style */
+        .order-book-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 15px;
+            font-size: 0.9rem;
+            font-family: 'JetBrains Mono', monospace;
         }
-        .stat-card {
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 8px;
-            padding: 15px;
-            margin-bottom: 10px;
-            backdrop-filter: blur(10px);
+
+        .order-book-header {
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            padding: 10px 15px;
+            border-bottom: 1px solid var(--border-color);
         }
-        .price-up {
-            color: #00ff88;
+
+        .buy-side { color: var(--up-color); }
+        .sell-side { color: var(--down-color); }
+
+        /* Timeframe Buttons */
+        .btn-group-time {
+            background: var(--bg-dark);
+            padding: 4px;
+            border-radius: 6px;
         }
-        .price-down {
-            color: #ff6b6b;
+
+        .btn-time {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            padding: 4px 12px;
+            font-size: 0.8rem;
+            border-radius: 4px;
+            transition: all 0.2s;
         }
-        .trading-panel {
-            background: #f8f9fa;
-            border-radius: 10px;
-            padding: 20px;
-            margin-bottom: 20px;
+
+        .btn-time.active {
+            background: var(--border-color);
+            color: var(--primary-color);
         }
-        .order-book {
-            max-height: 300px;
-            overflow-y: auto;
-        }
-        .buy-order {
-            color: #00ff88;
-        }
-        .sell-order {
-            color: #ff6b6b;
+
+        /* Badge Customization */
+        .badge-live {
+            background: rgba(14, 203, 129, 0.15);
+            color: var(--up-color);
+            border: 1px solid var(--up-color);
+            font-size: 0.7rem;
+            padding: 3px 8px;
         }
     </style>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
-        <div class="container">
+
+    <nav class="navbar navbar-expand-lg">
+        <div class="container-fluid">
             <a class="navbar-brand" href="#">
-                <i class="fas fa-chart-line"></i> TKUC レートチャート
+                <i class="fa-solid fa-bolt-lightning me-2"></i>TKUC MARKET TERMINAL
             </a>
-            <div class="navbar-nav ms-auto">
-                <span class="navbar-text" id="current-rate">
-                    読み込み中...
-                </span>
+            <div class="ms-auto d-flex align-items-center">
+                <div class="price-ticker me-3" id="nav-price">
+                    <span class="text-muted">TKUC/USD</span>
+                    <span id="current-rate-nav" class="ms-2">--.----</span>
+                </div>
+                <span class="badge badge-live"><i class="fa-solid fa-circle fa-beat-fade me-1"></i> LIVE MARKET</span>
             </div>
         </div>
     </nav>
 
-    <div class="container-fluid mt-4">
-        <div class="row">
-            <!-- メインチャート -->
-            <div class="col-lg-8">
-                <div class="card">
-                    <div class="card-header">
-                        <h5 class="card-title mb-0">
-                            <i class="fas fa-chart-area"></i> TKUC/USD レートチャート
-                        </h5>
+    <div class="main-container">
+        <!-- Market Stats Row -->
+        <div class="market-summary">
+            <div class="summary-item">
+                <div class="summary-label">現在の価格</div>
+                <div class="summary-value" id="stats-price">$0.0000</div>
+            </div>
+            <div class="summary-item">
+                <div class="summary-label">24h 変動率</div>
+                <div class="summary-value" id="stats-change">+0.00%</div>
+            </div>
+            <div class="summary-item">
+                <div class="summary-label">24h 最高値</div>
+                <div class="summary-value" id="stats-high">$0.0000</div>
+            </div>
+            <div class="summary-item">
+                <div class="summary-label">24h 最安値</div>
+                <div class="summary-value" id="stats-low">$0.0000</div>
+            </div>
+            <div class="summary-item">
+                <div class="summary-label">24h 取引高</div>
+                <div class="summary-value" id="stats-vol">0.00 TKUC</div>
+            </div>
+        </div>
+
+        <div class="row g-4">
+            <!-- Main Chart Area -->
+            <div class="col-xl-9 col-lg-8">
+                <div class="glass-card">
+                    <div class="card-header-custom">
+                        <div class="d-flex align-items-center">
+                            <h6 class="mb-0 me-3">価格推移チャート</h6>
+                            <div class="btn-group-time">
+                                <button class="btn-time active" onclick="updateTimeframe('1m')">1M</button>
+                                <button class="btn-time" onclick="updateTimeframe('15m')">15M</button>
+                                <button class="btn-time" onclick="updateTimeframe('1h')">1H</button>
+                                <button class="btn-time" onclick="updateTimeframe('1d')">1D</button>
+                            </div>
+                        </div>
+                        <i class="fa-solid fa-expand text-muted cursor-pointer"></i>
                     </div>
-                    <div class="card-body">
-                        <div class="chart-container">
-                            <canvas id="rateChart"></canvas>
-                        </div>
-                        <div class="d-flex justify-content-between">
-                            <div>
-                                <button class="btn btn-outline-primary btn-sm" onclick="setTimeframe('1m')">1分</button>
-                                <button class="btn btn-outline-primary btn-sm" onclick="setTimeframe('5m')">5分</button>
-                                <button class="btn btn-outline-primary btn-sm" onclick="setTimeframe('15m')">15分</button>
-                                <button class="btn btn-outline-primary btn-sm" onclick="setTimeframe('1h')">1時間</button>
-                            </div>
-                            <div>
-                                <span class="badge bg-success" id="market-status">市場: アクティブ</span>
-                            </div>
-                        </div>
+                    <div class="chart-wrapper">
+                        <canvas id="mainRateChart"></canvas>
                     </div>
                 </div>
             </div>
 
-            <!-- サイドバー -->
-            <div class="col-lg-4">
-                <!-- 市場統計 -->
-                <div class="market-stats">
-                    <h6 class="mb-3"><i class="fas fa-tachometer-alt"></i> 市場統計</h6>
-                    <div class="stat-card">
-                        <div class="d-flex justify-content-between">
-                            <span>現在レート</span>
-                            <span id="stats-current-rate">-- TKUP</span>
+            <!-- Order Book Area -->
+            <div class="col-xl-3 col-lg-4">
+                <div class="glass-card">
+                    <div class="card-header-custom">
+                        <h6 class="mb-0">オーダー板 (模擬)</h6>
+                        <span class="text-muted small">Depth</span>
+                    </div>
+                    <div class="order-book-header d-flex justify-content-between">
+                        <span>価格 (USD)</span>
+                        <span>数量 (TKUC)</span>
+                    </div>
+                    <div id="order-book-content">
+                        <!-- Sell orders (Descending) -->
+                        <div id="sell-orders"></div>
+                        <!-- Current Spread Divider -->
+                        <div class="py-2 text-center border-top border-bottom" style="background: rgba(255,255,255,0.02)">
+                            <span id="spread-price" class="fw-bold h5 mb-0">--.----</span>
                         </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="d-flex justify-content-between">
-                            <span>24h変動</span>
-                            <span id="stats-change">--</span>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="d-flex justify-content-between">
-                            <span>取引高</span>
-                            <span id="stats-volume">-- TKUC</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 取引パネル（無効化） -->
-                <div class="trading-panel">
-                    <h6><i class="fas fa-exchange-alt"></i> 取引情報</h6>
-                    <div class="alert alert-info">
-                        <i class="fas fa-info-circle"></i> 取引はDiscordのコマンドで行ってください
-                    </div>
-                    <div class="row">
-                        <div class="col-6">
-                            <button class="btn btn-secondary w-100 mb-2" disabled>
-                                <i class="fas fa-arrow-up"></i> 買い
-                            </button>
-                        </div>
-                        <div class="col-6">
-                            <button class="btn btn-secondary w-100 mb-2" disabled>
-                                <i class="fas fa-arrow-down"></i> 売り
-                            </button>
-                        </div>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">数量 (TKUC)</label>
-                        <input type="number" class="form-control" id="trade-amount" placeholder="1.0" min="0.1" step="0.1" disabled>
-                    </div>
-                    <div class="text-muted small">
-                        💬 Discordコマンドを使用:<br>
-                        • `/tk-buy <数量>` - TKUC購入<br>
-                        • `/tk-buy-order <価格> <数量>` - 買い注文<br>
-                        • `/tk-sell-order <価格> <数量>` - 売り注文
-                    </div>
-                </div>
-
-                <!-- オーダー板 -->
-                <div class="card">
-                    <div class="card-header">
-                        <h6 class="card-title mb-0"><i class="fas fa-book"></i> オーダー板</h6>
-                    </div>
-                    <div class="card-body">
-                        <div class="order-book" id="order-book">
-                            <div class="text-center text-muted">読み込み中...</div>
-                        </div>
+                        <!-- Buy orders (Descending) -->
+                        <div id="buy-orders"></div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- 市場ニュース -->
+        <!-- Terminal Info / News -->
         <div class="row mt-4">
             <div class="col-12">
-                <div class="card">
-                    <div class="card-header">
-                        <h6 class="card-title mb-0"><i class="fas fa-newspaper"></i> 市場ニュース</h6>
+                <div class="glass-card">
+                    <div class="card-header-custom">
+                        <h6 class="mb-0"><i class="fa-solid fa-bullhorn me-2 text-warning"></i>システム通知 & 市場ニュース</h6>
                     </div>
-                    <div class="card-body">
-                        <div id="market-news">
-                            <div class="alert alert-info">
-                                <i class="fas fa-info-circle"></i> レート変動要因や市場イベントがここに表示されます。
+                    <div class="p-3">
+                        <div class="d-flex align-items-start mb-3 border-bottom border-secondary pb-3">
+                            <span class="badge bg-primary me-3">重要</span>
+                            <div>
+                                <div class="fw-bold mb-1">TKUC ネットワークのアップデート完了</div>
+                                <div class="text-muted small">システムの安定性が向上し、取引処理速度が20%改善されました。</div>
+                            </div>
+                        </div>
+                        <div class="d-flex align-items-start">
+                            <span class="badge bg-secondary me-3">情報</span>
+                            <div>
+                                <div class="fw-bold mb-1">次回のコミュニティドロップについて</div>
+                                <div class="text-muted small">来月の第2週にホルダー向けの報酬配布を予定しています。</div>
                             </div>
                         </div>
                     </div>
@@ -184,10 +273,199 @@
         </div>
     </div>
 
-    <!-- Bootstrap JS -->
+    <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <!-- Font Awesome -->
-    <script src="https://kit.fontawesome.com/your-font-awesome-kit.js" crossorigin="anonymous"></script>
-    <script src="chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/date-fns@2.29.3/index.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@2.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+
+    <script>
+        // --- リアルデータ取得とチャート管理 ---
+        let currentRate = 100;
+        let chart;
+        let rateHistory = [];
+
+        // APIから初期データを取得
+        async function fetchInitialData() {
+            try {
+                const response = await fetch('/api/rate-history?points=50');
+                const data = await response.json();
+                if (data.success) {
+                    currentRate = data.currentRate;
+                    rateHistory = data.history.map(h => ({
+                        x: h.timestamp,
+                        y: h.rate
+                    }));
+                    return rateHistory;
+                }
+            } catch (error) {
+                console.error('Failed to fetch initial data:', error);
+            }
+            return [];
+        }
+
+        async function initChart() {
+            const ctx = document.getElementById('mainRateChart').getContext('2d');
+
+            // グラデーションの作成
+            const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+            gradient.addColorStop(0, 'rgba(240, 185, 11, 0.2)');
+            gradient.addColorStop(1, 'rgba(240, 185, 11, 0)');
+
+            const initialData = await fetchInitialData();
+
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    datasets: [{
+                        label: 'TKUC/TKUP',
+                        data: initialData,
+                        borderColor: '#f0b90b',
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        fill: true,
+                        backgroundColor: gradient,
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        intersect: false,
+                        mode: 'index',
+                    },
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: { unit: 'minute' },
+                            grid: { color: '#2b2f36' },
+                            ticks: { color: '#848e9c' }
+                        },
+                        y: {
+                            grid: { color: '#2b2f36' },
+                            ticks: { color: '#848e9c' }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return 'TKUP: ' + context.parsed.y.toFixed(2);
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // オーダー板を実データで更新
+        async function updateOrderBook() {
+            try {
+                const response = await fetch('/api/order-book');
+                const data = await response.json();
+
+                if (data.success) {
+                    const sellContainer = document.getElementById('sell-orders');
+                    const buyContainer = document.getElementById('buy-orders');
+
+                    // 売り注文（降順）
+                    let sellHtml = '';
+                    const sellOrders = data.sellOrders.sort((a, b) => b.price - a.price).slice(0, 5);
+                    sellOrders.forEach(order => {
+                        sellHtml += `<div class="order-book-row sell-side"><span>${order.price.toFixed(2)}</span><span>${order.remaining.toFixed(2)}</span></div>`;
+                    });
+                    sellContainer.innerHTML = sellHtml || '<div class="order-book-row text-muted text-center">注文なし</div>';
+
+                    // 買い注文（降順）
+                    let buyHtml = '';
+                    const buyOrders = data.buyOrders.sort((a, b) => b.price - a.price).slice(0, 5);
+                    buyOrders.forEach(order => {
+                        buyHtml += `<div class="order-book-row buy-side"><span>${order.price.toFixed(2)}</span><span>${order.remaining.toFixed(2)}</span></div>`;
+                    });
+                    buyContainer.innerHTML = buyHtml || '<div class="order-book-row text-muted text-center">注文なし</div>';
+
+                    document.getElementById('spread-price').innerText = currentRate.toFixed(2);
+                }
+            } catch (error) {
+                console.error('Failed to update order book:', error);
+            }
+        }
+
+        // リアルタイムで価格を更新
+        async function updateMarketData() {
+            try {
+                const response = await fetch('/api/current-rate');
+                const data = await response.json();
+
+                if (data.success) {
+                    const prevRate = currentRate;
+                    currentRate = data.rate;
+
+                    // UI更新
+                    const priceStr = currentRate.toFixed(2);
+                    document.getElementById('current-rate-nav').innerText = priceStr + ' TKUP';
+                    document.getElementById('stats-price').innerText = priceStr + ' TKUP';
+
+                    // 24h統計を計算
+                    if (chart.data.datasets[0].data.length > 0) {
+                        const rates = chart.data.datasets[0].data.map(d => d.y);
+                        const high = Math.max(...rates);
+                        const low = Math.min(...rates);
+                        const first = rates[0];
+                        const change = ((currentRate - first) / first * 100).toFixed(2);
+
+                        document.getElementById('stats-high').innerText = high.toFixed(2) + ' TKUP';
+                        document.getElementById('stats-low').innerText = low.toFixed(2) + ' TKUP';
+                        document.getElementById('stats-change').innerText = (change >= 0 ? '+' : '') + change + '%';
+                        document.getElementById('stats-change').className = `summary-value ${change >= 0 ? 'text-success' : 'text-danger'}`;
+                    }
+
+                    // チャートデータ追加
+                    chart.data.datasets[0].data.push({ x: Date.now(), y: currentRate });
+                    if(chart.data.datasets[0].data.length > 100) chart.data.datasets[0].data.shift();
+                    chart.update('none');
+
+                    // スプレッド価格の色を変更
+                    const priceChange = currentRate - prevRate;
+                    document.getElementById('spread-price').className = `fw-bold h5 mb-0 ${priceChange >= 0 ? 'text-success' : 'text-danger'}`;
+                }
+            } catch (error) {
+                console.error('Failed to update market data:', error);
+            }
+        }
+
+        // 定期的に更新
+        function startRealtimeUpdates() {
+            // 5秒ごとに価格とチャート更新
+            setInterval(async () => {
+                await updateMarketData();
+            }, 5000);
+
+            // 10秒ごとにオーダーブック更新
+            setInterval(async () => {
+                await updateOrderBook();
+            }, 10000);
+        }
+
+        function updateTimeframe(tf) {
+            document.querySelectorAll('.btn-time').forEach(b => b.classList.remove('active'));
+            event.target.classList.add('active');
+            // タイムフレーム変更時にデータ再取得
+            fetchInitialData().then(data => {
+                chart.data.datasets[0].data = data;
+                chart.update();
+            });
+        }
+
+        window.onload = async () => {
+            await initChart();
+            await updateOrderBook();
+            await updateMarketData();
+            startRealtimeUpdates();
+        };
+    </script>
 </body>
 </html>
