@@ -4,7 +4,7 @@ const { loadJSON, saveJSON } = require('./fileStorage');
 require('dotenv').config();
 
 const perplexityClient = new OpenAI({
-  baseURL: 'https://api.perplexity.ai/',
+  baseURL: 'https://api.perplexity.ai',
   apiKey: process.env.PERPLEXITY_API_KEY,
 });
 
@@ -337,7 +337,7 @@ async function apiCallWithRetry(apiCall, retries = 3) {
  * @param {Array} conversationHistory - 会話履歴 [{ role: 'user'|'assistant', content: string }]
  * @returns {AsyncGenerator<string>} ストリーミングテキスト
  */
-async function* streamAIResponse(userMessage, control = '', provider = 'openrouter', conversationHistory = []) {
+async function* streamAIResponse(userMessage, control = '', provider = 'perplexity', conversationHistory = []) {
   try {
     const messages = [];
 
@@ -386,7 +386,18 @@ async function* streamAIResponse(userMessage, control = '', provider = 'openrout
     }
   } catch (error) {
     console.error(`${provider} streaming error:`, error);
-    yield '申し訳ありませんが、エラーが発生しました。';
+
+    // 詳細なエラーメッセージ
+    if (error.status === 401) {
+      console.error(`⚠️ ${provider} APIキー認証エラー: APIキーを確認してください`);
+      yield `${provider} APIの認証に失敗しました。管理者に連絡してください。`;
+    } else if (error.status === 429) {
+      yield 'APIの使用制限に達しました。しばらくしてから再度お試しください。';
+    } else if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND') {
+      yield 'APIサーバーに接続できませんでした。ネットワーク接続を確認してください。';
+    } else {
+      yield '申し訳ありませんが、エラーが発生しました。';
+    }
   }
 }
 

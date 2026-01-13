@@ -169,7 +169,7 @@ async function handleAIChat(message) {
 
     let fullResponse = '';
     let lastEditTime = Date.now();
-    const generator = streamAIResponse(message.content, enhancedControl, guildConfig.provider || 'openrouter', conversationHistory);
+    const generator = streamAIResponse(message.content, enhancedControl, guildConfig.provider || 'perplexity', conversationHistory);
 
     for await (const chunk of generator) {
       fullResponse += chunk;
