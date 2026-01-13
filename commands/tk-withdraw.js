@@ -4,7 +4,7 @@ const { withdrawTKUP } = require('../modules/economyService');
 module.exports = {
   command: new SlashCommandBuilder()
     .setName('tk-withdraw')
-    .setDescription('TKUPを出金します（手数料10%）')
+    .setDescription('TKUPを出金します（手数料3%）')
     .addIntegerOption(option =>
       option.setName('amount')
         .setDescription('出金するTKUPの数量')
@@ -23,7 +23,7 @@ module.exports = {
           .setDescription(result.message)
           .addFields(
             { name: '出金額', value: `${result.withdrawn} TKUP相当`, inline: true },
-            { name: '手数料', value: '10%', inline: true }
+            { name: '手数料', value: '3%', inline: true }
           )
           .setColor(0x00ff00)
           .setFooter({ text: '出金処理完了' })

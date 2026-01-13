@@ -484,17 +484,17 @@ function withdrawTKUP(userId, amount) {
     return { success: false, message: 'TKUP残高が不足しています。' };
   }
 
-  // 手数料10%差し引き
-  const withdrawAmount = amount * 0.9;
+  // 手数料3%差し引き
+  const withdrawAmount = amount * 0.97;
 
   balance.tkup -= amount;
   saveUserBalance(userId, balance);
 
-  recordTransaction(userId, 'withdraw', { amount, withdrawAmount, fee: amount * 0.1 });
+  recordTransaction(userId, 'withdraw', { amount, withdrawAmount, fee: amount * 0.03 });
 
   return {
     success: true,
-    message: `${withdrawAmount} TKUP相当を出金しました。（手数料10%）`,
+    message: `${withdrawAmount} TKUP相当を出金しました。（手数料3%）`,
     withdrawn: withdrawAmount
   };
 }
@@ -863,8 +863,13 @@ function placeBuyOrder(userId, price, amount) {
     price,
     amount,
     remaining: amount,
-    timestamp: Date.now()
+    timestamp: Date.now(),
+    lockedAmount: totalCost  // ロック額を記録
   };
+
+  // TKUP残高をロック
+  balance.tkup -= totalCost;
+  saveUserBalance(userId, balance);
 
   orderBook.buyOrders.push(order);
   saveOrderBook(orderBook);
@@ -898,8 +903,13 @@ function placeSellOrder(userId, price, amount) {
     price,
     amount,
     remaining: amount,
-    timestamp: Date.now()
+    timestamp: Date.now(),
+    lockedAmount: amount  // ロック額を記録
   };
+
+  // TKUC残高をロック
+  balance.tkuc -= amount;
+  saveUserBalance(userId, balance);
 
   orderBook.sellOrders.push(order);
   saveOrderBook(orderBook);
@@ -1003,15 +1013,13 @@ function matchOrders() {
 function executeTrade(buyOrder, sellOrder, amount, price) {
   const totalCost = amount * price;
 
-  // 買い手: TKUP支払い、TKUC受け取り
+  // 買い手: TKUP既にロック済み、TKUC受け取り
   const buyerBalance = getUserBalance(buyOrder.userId);
-  buyerBalance.tkup -= totalCost;
   buyerBalance.tkuc += amount;
   saveUserBalance(buyOrder.userId, buyerBalance);
 
-  // 売り手: TKUC支払い、TKUP受け取り
+  // 売り手: TKUC既にロック済み、TKUP受け取り
   const sellerBalance = getUserBalance(sellOrder.userId);
-  sellerBalance.tkuc -= amount;
   sellerBalance.tkup += totalCost;
   saveUserBalance(sellOrder.userId, sellerBalance);
 

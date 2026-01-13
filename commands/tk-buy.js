@@ -34,7 +34,7 @@ module.exports = {
           .setDescription(result.message)
           .addFields(
             { name: '現在のレート', value: `${currentRate} TKUP = 1 TKUC`, inline: true },
-            { name: '手数料', value: '5%', inline: true }
+            { name: '手数料', value: '3%', inline: true }
           )
           .setColor(0x00ff00)
           .setTimestamp();
