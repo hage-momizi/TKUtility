@@ -146,10 +146,15 @@ module.exports = {
 
           if (result.success) {
             embed.setDescription('🎲 掛け金ゲーム開始');
+
+            // ボット名を表示
+            const botNames = result.bots.map(bot => bot.name).join('\n');
+
             embed.addFields(
-              { name: 'ゲームID', value: result.gameId, inline: true },
-              { name: '参加人数', value: `${players}人`, inline: true },
-              { name: '制限時間', value: '1分', inline: true }
+              { name: '💰 掛け金', value: `${amount} ${currency}`, inline: true },
+              { name: '👥 人間枠', value: `${result.currentPlayers}/${result.maxPlayers}人`, inline: true },
+              { name: '⏰ 残り時間', value: '5分', inline: true },
+              { name: '🤖 ボット参加者（談合防止）', value: botNames, inline: false }
             );
 
             // 参加ボタン
@@ -168,7 +173,7 @@ module.exports = {
 
             // 制限時間監視
             const gameId = result.gameId;
-            const timeoutMs = 60 * 1000; // 1分
+            const timeoutMs = 5 * 60 * 1000; // 5分
 
             setTimeout(async () => {
               try {
@@ -178,13 +183,13 @@ module.exports = {
                 if (gameSession && gameSession.status === 'waiting') {
                   // まだ開始されていない場合、時間切れ処理
                   const timeoutEmbed = new EmbedBuilder()
-                    .setTitle('🎲 掛け金ゲーム - 時間切れ')
-                    .setDescription('参加者が集まらなかったため、ゲームはキャンセルされました。')
-                    .setColor(0xdc3545)
+                    .setTitle('🎲 掛け金ゲーム - 募集終了')
+                    .setDescription('**募集制限終了！賭け金を返却しました**')
+                    .setColor(0xffa500)
                     .addFields(
-                      { name: 'ゲームID', value: gameId, inline: true },
-                      { name: '返金額', value: `${amount} ${currency}`, inline: true },
-                      { name: '理由', value: '参加者不足', inline: true }
+                      { name: '💰 返金額', value: `${amount} ${currency}`, inline: true },
+                      { name: '👥 参加者', value: `${gameSession.participants.length}/${result.maxPlayers}人`, inline: true },
+                      { name: '⏰ 理由', value: '時間切れ（5分経過）', inline: true }
                     );
 
                   // 掛け金を返金

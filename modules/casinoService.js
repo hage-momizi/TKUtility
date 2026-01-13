@@ -393,6 +393,45 @@ function playRoulette(userId, betAmount, currency, betType, betValue) {
 }
 
 /**
+ * ランダムなボット名を取得
+ * @param {number} count - ボット数
+ * @returns {Array} ボット配列
+ */
+function getRandomBots(count = 2) {
+  const botNames = [
+    '🤖 ギャンブラーAI',
+    '🎰 ラッキーボット',
+    '🎲 カジノマスター',
+    '💰 フォーチュンAI',
+    '🃏 ポーカーフェイス',
+    '🎯 チャンスメーカー',
+    '🌟 スターダスト',
+    '🔥 ファイアベット',
+    '❄️ アイスガード',
+    '⚡ サンダーラック',
+    '🌙 ムーンライト',
+    '☀️ サンシャイン',
+    '🎪 サーカスキング',
+    '🏆 チャンピオンAI',
+    '💎 ダイヤモンド',
+    '🎨 アーティスト',
+    '🚀 ロケットマン',
+    '🌊 オーシャン',
+    '🗻 マウンテン',
+    '🌈 レインボー'
+  ];
+
+  const shuffled = [...botNames].sort(() => Math.random() - 0.5);
+  const selectedNames = shuffled.slice(0, count);
+
+  return selectedNames.map((name, index) => ({
+    id: `bot_${Date.now()}_${index}`,
+    name: name,
+    isBot: true
+  }));
+}
+
+/**
  * 掛け金ゲーム開始
  * @param {string} userId - ホストユーザーID
  * @param {number} betAmount - 掛け金
@@ -410,6 +449,9 @@ function startKakeGame(userId, betAmount, currency, maxPlayers) {
 
   const gameId = `kake_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
+  // ボットを2人追加（談合防止）
+  const bots = getRandomBots(2);
+
   const gameSession = {
     id: gameId,
     host: userId,
@@ -417,9 +459,10 @@ function startKakeGame(userId, betAmount, currency, maxPlayers) {
     currency,
     maxPlayers,
     participants: [userId],
+    bots: bots,
     status: 'waiting',
     createdAt: Date.now(),
-    expiresAt: Date.now() + (60 * 1000), // 1分間
+    expiresAt: Date.now() + (5 * 60 * 1000), // 5分間
   };
 
   gameSessions.set(gameId, gameSession);
@@ -432,7 +475,10 @@ function startKakeGame(userId, betAmount, currency, maxPlayers) {
              `参加人数: ${maxPlayers}人\n` +
              `制限時間: 1分\n\n` +
              `他の人が参加ボタンを押すとゲームが開始されます。`,
-    gameId
+    gameId,
+    maxPlayers,
+    currentPlayers: 1,
+    bots: bots
   };
 }
 
@@ -497,25 +543,29 @@ function executeKakeGame(gameSession) {
   const fee = Math.ceil(totalPot * 0.2);
   const distributable = totalPot - fee;
 
-  // 勝者選定（ランダム）
-  const winnerIndex = Math.floor(Math.random() * gameSession.participants.length);
-  const winner = gameSession.participants[winnerIndex];
-
   // 勝者に分配（90%）
   const winnerPrize = Math.floor(distributable * 0.9);
 
-  // 参加者全員の残高更新
+  // 人間 + ボットから勝者選定（ランダム）
+  const allParticipants = [
+    ...gameSession.participants.map(id => ({ id, isBot: false })),
+    ...gameSession.bots
+  ];
+  const winnerIndex = Math.floor(Math.random() * allParticipants.length);
+  const winner = allParticipants[winnerIndex];
+
+  // 参加者全員の残高更新（人間のみ）
   gameSession.participants.forEach(participantId => {
     const balance = getUserBalance(participantId);
 
     if (gameSession.currency === 'TKUP') {
       balance.tkup -= gameSession.betAmount;
-      if (participantId === winner) {
+      if (!winner.isBot && participantId === winner.id) {
         balance.tkup += winnerPrize;
       }
     } else {
       balance.tkuc -= gameSession.betAmount;
-      if (participantId === winner) {
+      if (!winner.isBot && participantId === winner.id) {
         balance.tkuc += winnerPrize;
       }
     }
@@ -527,26 +577,40 @@ function executeKakeGame(gameSession) {
       gameId: gameSession.id,
       betAmount: gameSession.betAmount,
       currency: gameSession.currency,
-      isWinner: participantId === winner,
-      prize: participantId === winner ? winnerPrize : 0,
-      totalParticipants: gameSession.participants.length
+      isWinner: !winner.isBot && participantId === winner.id,
+      prize: (!winner.isBot && participantId === winner.id) ? winnerPrize : 0,
+      totalParticipants: gameSession.participants.length,
+      totalWithBots: allParticipants.length
     });
   });
 
   // セッション削除
   gameSessions.delete(gameSession.id);
 
+  // 勝者表示（ボットか人間か）
+  const winnerDisplay = winner.isBot ? winner.name : `<@${winner.id}>`;
+  const botWinMessage = winner.isBot ? `\n💸 ボットが勝利したため、賞金${winnerPrize} ${gameSession.currency}はシステムに回収されました（談合防止機能）` : '';
+
+  // 全参加者リスト（人間 + ボット）
+  const participantsList = [
+    ...gameSession.participants.map(id => `👤 <@${id}>`),
+    ...gameSession.bots.map(bot => bot.name)
+  ].join(', ');
+
   return {
     success: true,
     message: `掛け金ゲームが終了しました！\n\n` +
-             `🎉 勝者: <@${winner}>\n` +
-             `💰 賞金: ${winnerPrize} ${gameSession.currency}\n` +
-             `👥 参加者数: ${gameSession.participants.length}人\n` +
+             `🎉 勝者: ${winnerDisplay}\n` +
+             `💰 賞金: ${winnerPrize} ${gameSession.currency}${botWinMessage}\n` +
+             `👥 人間参加者: ${gameSession.participants.length}人\n` +
+             `🤖 ボット: ${gameSession.bots.length}人\n` +
+             `🎲 合計: ${allParticipants.length}人\n` +
              `💵 総掛け金: ${totalPot} ${gameSession.currency}\n` +
              `💸 手数料: ${fee} ${gameSession.currency}\n\n` +
-             `参加者: ${gameSession.participants.map(id => `<@${id}>`).join(', ')}`,
-    winner,
-    winnerPrize
+             `全参加者: ${participantsList}`,
+    winner: winner.isBot ? winner.id : winner.id,
+    winnerPrize,
+    isBot: winner.isBot
   };
 }
 
@@ -633,5 +697,6 @@ module.exports = {
   playRoulette,
   startKakeGame,
   joinKakeGame,
-  executeKakeGame
+  executeKakeGame,
+  gameSessions // タイムアウト処理用にエクスポート
 };

@@ -440,22 +440,58 @@ async function handleInteraction(interaction, client) {
 
     if (customId.startsWith('kake_join_')) {
       const gameId = customId.replace('kake_join_', '');
-      const { joinKakeGame } = require('../modules/casinoService');
+      const { joinKakeGame, gameSessions } = require('../modules/casinoService');
 
       try {
-        const result = joinKakeGame(interaction.user.id, gameId);
+        // ゲーム参加前の状態を取得
+        const gameSession = gameSessions.get(gameId);
 
-        const embed = new EmbedBuilder()
-          .setTitle('🎲 掛け金ゲーム参加')
-          .setColor(result.success ? 0x28a745 : 0xdc3545);
-
-        if (result.success) {
-          embed.setDescription(result.message);
-        } else {
-          embed.addFields({ name: 'エラー', value: result.message, inline: false });
+        if (!gameSession) {
+          return await interaction.reply({
+            content: 'ゲームが見つかりません。',
+            ephemeral: true
+          });
         }
 
-        await interaction.reply({ embeds: [embed], ephemeral: true });
+        const result = joinKakeGame(interaction.user.id, gameId);
+
+        // 参加成功時にメッセージを更新（ゲーム開始前の場合のみ）
+        if (result.success && !result.message.includes('終了しました')) {
+          const updatedSession = gameSessions.get(gameId);
+
+          if (updatedSession) {
+            // メッセージを更新して現在の参加者数を表示
+            const botNames = updatedSession.bots.map(bot => bot.name).join('\n');
+            const updatedEmbed = new EmbedBuilder()
+              .setTitle('🎰 カジノゲーム')
+              .setDescription('🎲 掛け金ゲーム開始')
+              .setColor(0xFFD700)
+              .addFields(
+                { name: '💰 掛け金', value: `${updatedSession.betAmount} ${updatedSession.currency}`, inline: true },
+                { name: '👥 人間枠', value: `${updatedSession.participants.length}/${updatedSession.maxPlayers}人`, inline: true },
+                { name: '⏰ 残り時間', value: '60秒', inline: true },
+                { name: '🤖 ボット参加者（談合防止）', value: botNames, inline: false }
+              );
+
+            await interaction.update({
+              embeds: [updatedEmbed],
+              components: interaction.message.components // ボタンを維持
+            });
+          }
+        } else {
+          // ゲーム開始または失敗時
+          const embed = new EmbedBuilder()
+            .setTitle('🎲 掛け金ゲーム')
+            .setColor(result.success ? 0x28a745 : 0xdc3545);
+
+          if (result.success) {
+            embed.setDescription(result.message);
+          } else {
+            embed.addFields({ name: 'エラー', value: result.message, inline: false });
+          }
+
+          await interaction.reply({ embeds: [embed], ephemeral: !result.success });
+        }
 
       } catch (error) {
         console.error('Kake game join error:', error);

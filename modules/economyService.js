@@ -204,96 +204,10 @@ async function updateTKUCRate() {
 
     let changePercent;
 
-    // AIに市場情報を渡してレート決定（毎回使用）
-    // すべてのレート更新でAIを使用（安定化のため）
-    const shouldUseAI = true;
-
-    if (aiClient && shouldUseAI) {
-      try {
-        console.log('🤖 AIにレート決定を依頼...');
-
-        // 特別な市場状況を判定
-        const isExtremeActivity = chatActivity > 80;
-        const isHighConcentration = top3Ratio > 0.8;
-        const isVeryActiveTrading = recentTrades > 20;
-
-        let maxVariation = 5; // 通常の最大変動
-
-        // 極端な状況での変動幅拡大
-        if (isExtremeActivity || isHighConcentration || isVeryActiveTrading) {
-          maxVariation = 8; // 極端な状況では最大8%まで
-        }
-
-        // 市場の総合的な活発度を計算
-        const marketActivity = (chatActivity / 100) * 0.4 + (recentTrades / 50) * 0.3 + (marketData.buyPressure / 10) * 0.3;
-        const isMarketActive = marketActivity > 0.3;
-
-        // AIに渡す変動範囲を市場状況に応じて制限
-        const maxPositiveChange = isMarketActive ? 3 : 1.5; // 活発時最大+3%、静か時最大+1.5%
-        const maxNegativeChange = -2; // 最大-2%
-
-        const aiPrompt = `
-あなたは保守的な経済AIで、TKUC仮想通貨のレートを安定させる役割を担います。
-
-現在の市場状況:
-- TKUCレート: ${currentRate} TKUP
-- 市場活発度: ${(marketActivity * 100).toFixed(0)}% (${isMarketActive ? '活発' : '静か'})
-- チャット盛り上がり度: ${chatActivity.toFixed(1)}/100
-- 取引数: ${recentTrades}件/10分
-- 買い圧力: ${marketData.buyPressure}, 売り圧力: ${marketData.sellPressure}
-
-重要指針:
-- 市場が静かな場合（活発度30%未満）: 常に-0.5%から+1.0%の小幅変動
-- 市場が活発な場合（活発度30%以上）: -2%から+${maxPositiveChange.toFixed(1)}%の範囲
-- 安定性を最優先: 極端な変動を避ける
-- デフォルト判断: 市場が静かなら微妙な下降傾向
-
-レート変動率を決定してください。
-現在の市場状況: ${isMarketActive ? '活発（変動可能）' : '静か（安定優先）'}
-
-数値のみで回答（例: 0.5 または -0.8）:
-`;
-
-        const aiConfig = loadJSON(FILES.AI_CONFIG) || { provider: 'openrouter' };
-        const model = aiConfig.model || (aiConfig.provider === 'openrouter' ? 'openai/gpt-oss-120b:free' : 'sonar');
-
-        const completion = await aiClient.chat.completions.create({
-          model: model,
-          messages: [{ role: 'user', content: aiPrompt }],
-          max_tokens: 25, // より詳細な分析のため増やす
-          temperature: 0.3, // 安定した判断のため温度を下げる
-        });
-
-        const aiResponse = completion.choices[0].message.content.trim();
-
-        // 数値のみ抽出（シンプル化）
-        const numberMatch = aiResponse.match(/([+-]?\d+\.?\d*)/);
-        const aiChange = numberMatch ? parseFloat(numberMatch[1]) : null;
-
-        if (aiChange !== null && !isNaN(aiChange) && Math.abs(aiChange) <= 8) {
-          changePercent = aiChange;
-          console.log(`🤖 AIレート決定: ${changePercent.toFixed(2)}%`);
-        } else {
-          console.warn('⚠️ AIレスポンス無効、プログラム計算を使用');
-          changePercent = (Math.random() - 0.5) * 10; // フォールバック
-        }
-
-      } catch (aiError) {
-        console.warn('⚠️ AIレート決定失敗、プログラム計算を使用:', aiError.message);
-
-        // より賢いプログラム計算（市場状況を考慮）
-        changePercent = calculateSmartRateChange(marketData, chatActivity, top3Ratio, recentTrades);
-        console.log(`📊 スマート計算: ${changePercent.toFixed(2)}%`);
-      }
-    } else {
-      // AI利用不可の場合、または市場が静かな場合はプログラム計算
-      if (!aiClient) {
-        console.log('⚠️ AI利用不可、プログラム計算を使用');
-      } else {
-        console.log('📊 市場静穏、プログラム計算を使用');
-      }
-      changePercent = (Math.random() - 0.5) * 10; // -5% to +5%
-    }
+    // シンプル計算のみを使用（安定性重視）
+    console.log('📊 プログラム計算を使用');
+    changePercent = calculateSmartRateChange(marketData, chatActivity, top3Ratio, recentTrades);
+    console.log(`📊 スマート計算: ${changePercent.toFixed(2)}%`);
 
     // 追加の市場調整（AI決定を補完）
     const pressureDiff = marketData.buyPressure - marketData.sellPressure;
@@ -332,10 +246,10 @@ async function updateTKUCRate() {
       console.log(`📈 上限接近調整: -${additionalPressure.toFixed(1)}%追加下降`);
     }
 
-    // 下限接近時の追加上昇圧力
-    if (currentRate < lowerLimit * 1.5) { // 下限の150%未満なら
-      const deficitRatio = (lowerLimit * 1.5 - currentRate) / (lowerLimit * 0.5);
-      const additionalBoost = Math.min(2, deficitRatio * 2); // 最大+2%追加
+    // 下限接近時の追加上昇圧力（弱く調整）
+    if (currentRate < lowerLimit * 1.2) { // 下限の120%未満なら
+      const deficitRatio = (lowerLimit * 1.2 - currentRate) / (lowerLimit * 0.2);
+      const additionalBoost = Math.min(0.5, deficitRatio * 0.5); // 最大+0.5%追加
       changePercent += additionalBoost;
       console.log(`📉 下限接近調整: +${additionalBoost.toFixed(1)}%追加上昇`);
     }
