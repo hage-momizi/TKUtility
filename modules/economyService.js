@@ -204,17 +204,6 @@ async function updateTKUCRate() {
     const currentRate = getTKUCRate();
     const rateData = loadJSON(FILES.TKUC_RATE);
 
-    // 5回ごとに注文リセット
-    rateUpdateCounter++;
-    if (rateUpdateCounter >= 5) {
-      console.log('📊 5回レート更新 → 注文リセット');
-      const orderBook = getOrderBook();
-      orderBook.buyOrders = [];
-      orderBook.sellOrders = [];
-      saveOrderBook(orderBook);
-      rateUpdateCounter = 0;
-    }
-
     // 市場状況を取得
     const marketData = analyzeMarketCondition();
 
@@ -390,7 +379,7 @@ function buyTKUC(userId, tkucAmount) {
   const rate = getTKUCRate();
 
   // 手数料込みの必要TKUP
-  const tkupNeeded = tkucAmount * rate * 1.05; // 5%手数料
+  const tkupNeeded = tkucAmount * rate * 1.03; // 3%手数料に変更
 
   if (balance.tkup < tkupNeeded) {
     return { success: false, message: 'TKUP残高が不足しています。' };
@@ -405,7 +394,7 @@ function buyTKUC(userId, tkucAmount) {
 
   return {
     success: true,
-    message: `${tkucAmount} TKUCを購入しました。（${tkupNeeded} TKUP消費、手数料5%）`,
+    message: `${tkucAmount} TKUCを購入しました。（${tkupNeeded} TKUP消費、手数料3%）`,
     tkupSpent: tkupNeeded,
     tkucReceived: tkucAmount
   };
