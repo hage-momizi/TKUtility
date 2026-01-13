@@ -34,10 +34,14 @@ module.exports = {
           .setDescription(result.message)
           .addFields(
             { name: '現在のレート', value: `${currentRate} TKUP = 1 TKUC`, inline: true },
-            { name: '手数料', value: '3%', inline: true }
+            { name: '手数料', value: '3%', inline: true },
+            { name: '消費TKUP', value: `${result.tkupSpent} TKUP`, inline: true }
           )
           .setColor(0x00ff00)
           .setTimestamp();
+
+        // ログ出力
+        console.log(`[tk-buy] ${interaction.user.username} purchased ${roundedAmount} TKUC for ${result.tkupSpent} TKUP`);
 
         await interaction.reply({ embeds: [embed] });
       } else {

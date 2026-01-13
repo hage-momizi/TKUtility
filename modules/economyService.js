@@ -1245,7 +1245,8 @@ function getRecentTradeCount() {
   for (const [userId, userHistory] of Object.entries(history)) {
     if (userHistory) {
       for (const [type, transactions] of Object.entries(userHistory)) {
-        if (type.includes('market_')) {
+        // 取引タイプ：buy（直接購入）、sell（直接売却）、market_buy（オーダー約定）、market_sell（オーダー約定）
+        if (['buy', 'sell', 'market_buy', 'market_sell'].includes(type)) {
           const recentTrades = transactions.filter(tx =>
             now - tx.timestamp < recentTime
           );
