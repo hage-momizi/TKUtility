@@ -224,8 +224,13 @@ async function handleTKUPGain(message) {
   // TKUP獲得計算
   const gain = calculateTKUPGain(message.content, hasImage);
   if (gain > 0) {
+    // ブースター適用後の実際の獲得値を計算（console表示用）
+    const { getActiveBooster } = require('../modules/economyService');
+    const booster = getActiveBooster(message.author.id);
+    const actualGain = booster ? Math.floor(gain * booster.multiplier) : gain;
+
     earnTKUP(message.author.id, gain);
-    console.log(`TKUP獲得: ${message.author.username} (+${gain} TKUP)`);
+    console.log(`TKUP獲得: ${message.author.username} (+${actualGain} TKUP)${booster ? ` (${booster.multiplier}倍ブースター)` : ''}`);
   }
 }
 
