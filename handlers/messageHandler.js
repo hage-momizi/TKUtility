@@ -259,27 +259,27 @@ async function handleRevolutionFailure(message) {
 
         // レート暴落処理
         await triggerRateCrash();
+
+        // 通知メッセージ（イベント発動時のみ）
+        try {
+          await message.channel.send({
+            embeds: [{
+              title: '🚨 革命失敗イベント発生！',
+              description: '外部ボットからの革命失敗信号を検知しました。\nTKUCレートが暴落します！',
+              color: 0xdc3545,
+              fields: [
+                { name: '📉 影響', value: 'レートが大幅に下落', inline: true },
+                { name: '⏰ 期間', value: '即時反映', inline: true },
+                { name: '🎯 原因', value: '革命失敗イベント', inline: true }
+              ],
+              timestamp: new Date()
+            }]
+          });
+        } catch (error) {
+          console.error('革命失敗通知エラー:', error);
+        }
       } else {
         console.log('🚨 革命失敗検知（イベント未発生）');
-      }
-
-      // 通知メッセージ
-      try {
-        await message.channel.send({
-          embeds: [{
-            title: '🚨 革命失敗イベント発生！',
-            description: '外部ボットからの革命失敗信号を検知しました。\nTKUCレートが暴落します！',
-            color: 0xdc3545,
-            fields: [
-              { name: '📉 影響', value: 'レートが大幅に下落', inline: true },
-              { name: '⏰ 期間', value: '即時反映', inline: true },
-              { name: '🎯 原因', value: '革命失敗イベント', inline: true }
-            ],
-            timestamp: new Date()
-          }]
-        });
-      } catch (error) {
-        console.error('革命失敗通知エラー:', error);
       }
     }
   }

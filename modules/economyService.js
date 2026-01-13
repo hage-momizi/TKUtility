@@ -32,6 +32,9 @@ function initializeAIClient() {
 // AIクライアント（動的初期化）
 let aiClient = initializeAIClient();
 
+// レート更新カウンター（5回ごとに注文リセット）
+let rateUpdateCounter = 0;
+
 /**
  * ユーザー残高を取得
  * @param {string} userId - ユーザーID
@@ -194,6 +197,17 @@ async function updateTKUCRate() {
     const currentRate = getTKUCRate();
     const rateData = loadJSON(FILES.TKUC_RATE);
 
+    // 5回ごとに注文リセット
+    rateUpdateCounter++;
+    if (rateUpdateCounter >= 5) {
+      console.log('📊 5回レート更新 → 注文リセット');
+      const orderBook = getOrderBook();
+      orderBook.buyOrders = [];
+      orderBook.sellOrders = [];
+      saveOrderBook(orderBook);
+      rateUpdateCounter = 0;
+    }
+
     // 市場状況を取得
     const marketData = analyzeMarketCondition();
 
@@ -209,12 +223,12 @@ async function updateTKUCRate() {
     changePercent = calculateSmartRateChange(marketData, chatActivity, top3Ratio, recentTrades);
     console.log(`📊 スマート計算: ${changePercent.toFixed(2)}%`);
 
-    // 追加の市場調整（AI決定を補完）
+    // 追加の市場調整（売り圧力影響を大幅緩和）
     const pressureDiff = marketData.buyPressure - marketData.sellPressure;
     if (pressureDiff > 0) {
-      changePercent += Math.min(0.5, pressureDiff * 0.1);
+      changePercent += Math.min(0.5, pressureDiff * 0.02); // 0.1 → 0.02に緩和（5分の1）
     } else if (pressureDiff < 0) {
-      changePercent += Math.max(-0.5, pressureDiff * 0.1);
+      changePercent += Math.max(-0.5, pressureDiff * 0.02); // 0.1 → 0.02に緩和（5分の1）
     }
 
     // トレンド抑制（緩和）
@@ -246,8 +260,13 @@ async function updateTKUCRate() {
       console.log(`📈 上限接近調整: -${additionalPressure.toFixed(1)}%追加下降`);
     }
 
-    // 下限接近時の追加上昇圧力（弱く調整）
-    if (currentRate < lowerLimit * 1.2) { // 下限の120%未満なら
+    // 下限保護強化
+    if (currentRate <= lowerLimit * 1.1) { // 下限の110%以下
+      // 強制的に上昇させる
+      changePercent = Math.max(3, changePercent); // 最低+3%保証
+      console.log(`🚨 下限保護発動: 強制上昇 +${changePercent.toFixed(2)}%`);
+    } else if (currentRate < lowerLimit * 1.2) { // 下限の120%未満
+      // 通常の下限接近調整
       const deficitRatio = (lowerLimit * 1.2 - currentRate) / (lowerLimit * 0.2);
       const additionalBoost = Math.min(0.5, deficitRatio * 0.5); // 最大+0.5%追加
       changePercent += additionalBoost;
