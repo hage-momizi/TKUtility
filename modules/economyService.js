@@ -253,6 +253,8 @@ async function updateTKUCRate() {
     const top3Ratio = analyzeTop3Ratio(); // 上位3人の保有割合
     const recentTrades = getRecentTradeCount(); // 最近の取引数
 
+    console.log(`🔍 デバッグ: recentTrades=${recentTrades}, chatActivity=${chatActivity.toFixed(1)}, top3Ratio=${top3Ratio.toFixed(2)}`);
+
     let changePercent;
 
     // シンプル計算のみを使用（安定性重視）
@@ -1243,19 +1245,28 @@ function getRecentTradeCount() {
   let tradeCount = 0;
 
   for (const [userId, userHistory] of Object.entries(history)) {
-    if (userHistory) {
+    if (userHistory && typeof userHistory === 'object') {
       for (const [type, transactions] of Object.entries(userHistory)) {
         // 取引タイプ：buy（直接購入）、sell（直接売却）、market_buy（オーダー約定）、market_sell（オーダー約定）
         if (['buy', 'sell', 'market_buy', 'market_sell'].includes(type)) {
-          const recentTrades = transactions.filter(tx =>
-            now - tx.timestamp < recentTime
-          );
-          tradeCount += recentTrades.length;
+          // transactionsが配列であることを確認
+          if (Array.isArray(transactions)) {
+            const recentTrades = transactions.filter(tx =>
+              tx && typeof tx.timestamp === 'number' && now - tx.timestamp < recentTime
+            );
+            tradeCount += recentTrades.length;
+
+            // デバッグ：取引が見つかった場合のログ
+            if (recentTrades.length > 0) {
+              console.log(`🔍 [${userId}] ${type}: ${recentTrades.length}件の取引を検出`);
+            }
+          }
         }
       }
     }
   }
 
+  console.log(`🔍 合計取引数: ${tradeCount}件（過去10分）`);
   return tradeCount;
 }
 
