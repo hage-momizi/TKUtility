@@ -116,6 +116,13 @@ function checkTKUPHourlyLimit(history) {
  */
 function earnTKUP(userId, amount) {
   const balance = getUserBalance(userId);
+
+  // ブースター適用
+  const booster = getActiveBooster(userId);
+  if (booster) {
+    amount = Math.floor(amount * booster.multiplier);
+  }
+
   balance.tkup += amount;
   balance.earnedHistory.push({ timestamp: Date.now(), amount });
 
@@ -1288,6 +1295,131 @@ function resetAllBalances() {
   console.log('✅ オーダーブックをクリア');
 }
 
+// ブースターアイテム定義
+const BOOSTER_ITEMS = {
+  '1h': { name: '1時間ブースター', duration: 3600000, multiplier: 1.5, tkup: 500, tkuc: 2 },
+  '3h': { name: '3時間ブースター', duration: 10800000, multiplier: 2, tkup: 1200, tkuc: 4 },
+  '6h': { name: '6時間ブースター', duration: 21600000, multiplier: 2.5, tkup: 2000, tkuc: 6 },
+  '24h': { name: '24時間ブースター', duration: 86400000, multiplier: 3, tkup: 5000, tkuc: 15 }
+};
+
+/**
+ * アクティブなブースターを取得
+ * @param {string} userId - ユーザーID
+ * @returns {object|null} ブースター情報またはnull
+ */
+function getActiveBooster(userId) {
+  const balance = getUserBalance(userId);
+
+  if (!balance.booster) return null;
+
+  const now = Date.now();
+  if (balance.booster.expiresAt > now) {
+    return balance.booster;
+  }
+
+  // 期限切れのブースターを削除
+  delete balance.booster;
+  saveUserBalance(userId, balance);
+  return null;
+}
+
+/**
+ * ブースターアイテムを購入
+ * @param {string} userId - ユーザーID
+ * @param {string} itemType - アイテムタイプ (1h/3h/6h/24h)
+ * @param {string} payment - 支払い方法 (tkup/tkuc)
+ * @returns {object} 結果
+ */
+function buyBoosterItem(userId, itemType, payment) {
+  const item = BOOSTER_ITEMS[itemType];
+  if (!item) {
+    return { success: false, message: '無効なアイテムタイプです。' };
+  }
+
+  const balance = getUserBalance(userId);
+
+  // 支払い処理
+  if (payment === 'tkup') {
+    if (balance.tkup < item.tkup) {
+      return { success: false, message: 'TKUP残高が不足しています。' };
+    }
+    balance.tkup -= item.tkup;
+  } else if (payment === 'tkuc') {
+    if (balance.tkuc < item.tkuc) {
+      return { success: false, message: 'TKUC残高が不足しています。' };
+    }
+    balance.tkuc -= item.tkuc;
+  } else {
+    return { success: false, message: '無効な支払い方法です。' };
+  }
+
+  const now = Date.now();
+
+  // 既存のブースターがある場合は時間を延長
+  if (balance.booster && balance.booster.expiresAt > now) {
+    balance.booster.expiresAt += item.duration;
+    saveUserBalance(userId, balance);
+
+    const remainingMs = balance.booster.expiresAt - now;
+    const remainingHours = Math.floor(remainingMs / (60 * 60 * 1000));
+    const remainingMinutes = Math.floor((remainingMs % (60 * 60 * 1000)) / (60 * 1000));
+
+    recordTransaction(userId, 'booster_extend', { itemType, payment, duration: item.duration });
+
+    return {
+      success: true,
+      message: `${item.name}を購入しました！効果時間が延長されました。\n残り時間: ${remainingHours}時間${remainingMinutes}分`,
+      extended: true
+    };
+  }
+
+  // 新規ブースター適用
+  balance.booster = {
+    type: itemType,
+    name: item.name,
+    multiplier: item.multiplier,
+    expiresAt: now + item.duration
+  };
+
+  saveUserBalance(userId, balance);
+  recordTransaction(userId, 'booster_purchase', { itemType, payment, multiplier: item.multiplier });
+
+  return {
+    success: true,
+    message: `${item.name}を購入しました！TKUP獲得が${item.multiplier}倍になります。`,
+    extended: false
+  };
+}
+
+/**
+ * ブースターアイテム一覧を取得
+ * @returns {object} アイテム一覧
+ */
+function getBoosterItems() {
+  return BOOSTER_ITEMS;
+}
+
+/**
+ * ブースター情報をフォーマット
+ * @param {string} userId - ユーザーID
+ * @returns {string} フォーマット済み文字列
+ */
+function formatBoosterInfo(userId) {
+  const booster = getActiveBooster(userId);
+
+  if (!booster) {
+    return 'ブースター: なし';
+  }
+
+  const now = Date.now();
+  const remainingMs = booster.expiresAt - now;
+  const remainingHours = Math.floor(remainingMs / (60 * 60 * 1000));
+  const remainingMinutes = Math.floor((remainingMs % (60 * 60 * 1000)) / (60 * 1000));
+
+  return `🚀 ブースター: ${booster.name} (${booster.multiplier}倍)\n⏱️ 残り時間: ${remainingHours}時間${remainingMinutes}分`;
+}
+
 module.exports = {
   getUserBalance,
   saveUserBalance,
@@ -1312,6 +1444,10 @@ module.exports = {
   placeBuyOrder,
   placeSellOrder,
   cancelOrder,
+  getActiveBooster,
+  buyBoosterItem,
+  getBoosterItems,
+  formatBoosterInfo,
   testRateUpdate, // デバッグ用
   testAIConnection, // デバッグ用
 };
