@@ -20,15 +20,15 @@ module.exports = {
         .setDescription(
           `現在のTKUCレート: **${currentRate} TKUP**\n\n` +
           `📊 **リアルタイムチャート**\n` +
-          `チャートが5秒毎に自動更新されます`
+          `レートは2秒間隔で自動更新されます`
         )
         .setColor(0x007bff)
         .setImage('attachment://tkuc-chart.png')
         .addFields(
           { name: '💻 ウェブチャート', value: `[クリックして開く](${chartUrl})`, inline: true },
-          { name: '🔄 更新間隔', value: '5秒毎', inline: true },
+          { name: '🔄 レート更新', value: '2秒間隔', inline: true },
         )
-        .setFooter({ text: 'チャートは自動更新されます | /tk-settings で詳細設定を確認' })
+        .setFooter({ text: 'レートは2秒間隔で更新されます | /tk-settings で詳細設定を確認' })
         .setTimestamp();
 
       // ボタン追加

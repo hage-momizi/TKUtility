@@ -165,10 +165,10 @@
             </a>
             <div class="ms-auto d-flex align-items-center">
                 <div class="price-ticker me-3" id="nav-price">
-                    <span class="text-muted">TKUC/USD</span>
-                    <span id="current-rate-nav" class="ms-2">--.----</span>
+                    <span class="text-muted">TKUC/TKUP</span>
+                    <span id="current-rate-nav" class="ms-2">--.--</span>
                 </div>
-                <span class="badge badge-live"><i class="fa-solid fa-circle fa-beat-fade me-1"></i> LIVE MARKET</span>
+                <span class="badge badge-live"><i class="fa-solid fa-circle fa-beat-fade me-1"></i> 2秒自動更新</span>
             </div>
         </div>
     </nav>
@@ -178,68 +178,40 @@
         <div class="market-summary">
             <div class="summary-item">
                 <div class="summary-label">現在の価格</div>
-                <div class="summary-value" id="stats-price">$0.0000</div>
+                <div class="summary-value" id="stats-price">0 TKUP</div>
             </div>
             <div class="summary-item">
-                <div class="summary-label">24h 変動率</div>
+                <div class="summary-label">変動率</div>
                 <div class="summary-value" id="stats-change">+0.00%</div>
             </div>
             <div class="summary-item">
-                <div class="summary-label">24h 最高値</div>
-                <div class="summary-value" id="stats-high">$0.0000</div>
+                <div class="summary-label">最高値</div>
+                <div class="summary-value" id="stats-high">0 TKUP</div>
             </div>
             <div class="summary-item">
-                <div class="summary-label">24h 最安値</div>
-                <div class="summary-value" id="stats-low">$0.0000</div>
-            </div>
-            <div class="summary-item">
-                <div class="summary-label">24h 取引高</div>
-                <div class="summary-value" id="stats-vol">0.00 TKUC</div>
+                <div class="summary-label">最安値</div>
+                <div class="summary-value" id="stats-low">0 TKUP</div>
             </div>
         </div>
 
         <div class="row g-4">
-            <!-- Main Chart Area -->
-            <div class="col-xl-9 col-lg-8">
+            <!-- Main Chart Area (Full Width) -->
+            <div class="col-12">
                 <div class="glass-card">
                     <div class="card-header-custom">
                         <div class="d-flex align-items-center">
                             <h6 class="mb-0 me-3">価格推移チャート</h6>
                             <div class="btn-group-time">
-                                <button class="btn-time active" onclick="updateTimeframe('1m')">1M</button>
-                                <button class="btn-time" onclick="updateTimeframe('15m')">15M</button>
-                                <button class="btn-time" onclick="updateTimeframe('1h')">1H</button>
-                                <button class="btn-time" onclick="updateTimeframe('1d')">1D</button>
+                                <button class="btn-time active" data-timeframe="10" onclick="updateTimeframe(10, this)">10件</button>
+                                <button class="btn-time" data-timeframe="30" onclick="updateTimeframe(30, this)">30件</button>
+                                <button class="btn-time" data-timeframe="50" onclick="updateTimeframe(50, this)">50件</button>
+                                <button class="btn-time" data-timeframe="100" onclick="updateTimeframe(100, this)">100件</button>
                             </div>
                         </div>
-                        <i class="fa-solid fa-expand text-muted cursor-pointer"></i>
+                        <i class="fa-solid fa-chart-line text-muted"></i>
                     </div>
                     <div class="chart-wrapper">
                         <canvas id="mainRateChart"></canvas>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Order Book Area -->
-            <div class="col-xl-3 col-lg-4">
-                <div class="glass-card">
-                    <div class="card-header-custom">
-                        <h6 class="mb-0">オーダー板 (模擬)</h6>
-                        <span class="text-muted small">Depth</span>
-                    </div>
-                    <div class="order-book-header d-flex justify-content-between">
-                        <span>価格 (USD)</span>
-                        <span>数量 (TKUC)</span>
-                    </div>
-                    <div id="order-book-content">
-                        <!-- Sell orders (Descending) -->
-                        <div id="sell-orders"></div>
-                        <!-- Current Spread Divider -->
-                        <div class="py-2 text-center border-top border-bottom" style="background: rgba(255,255,255,0.02)">
-                            <span id="spread-price" class="fw-bold h5 mb-0">--.----</span>
-                        </div>
-                        <!-- Buy orders (Descending) -->
-                        <div id="buy-orders"></div>
                     </div>
                 </div>
             </div>
@@ -361,39 +333,6 @@
             });
         }
 
-        // オーダー板を実データで更新
-        async function updateOrderBook() {
-            try {
-                const response = await fetch('/api/order-book');
-                const data = await response.json();
-
-                if (data.success) {
-                    const sellContainer = document.getElementById('sell-orders');
-                    const buyContainer = document.getElementById('buy-orders');
-
-                    // 売り注文（降順）
-                    let sellHtml = '';
-                    const sellOrders = data.sellOrders.sort((a, b) => b.price - a.price).slice(0, 5);
-                    sellOrders.forEach(order => {
-                        sellHtml += `<div class="order-book-row sell-side"><span>${order.price.toFixed(2)}</span><span>${order.remaining.toFixed(2)}</span></div>`;
-                    });
-                    sellContainer.innerHTML = sellHtml || '<div class="order-book-row text-muted text-center">注文なし</div>';
-
-                    // 買い注文（降順）
-                    let buyHtml = '';
-                    const buyOrders = data.buyOrders.sort((a, b) => b.price - a.price).slice(0, 5);
-                    buyOrders.forEach(order => {
-                        buyHtml += `<div class="order-book-row buy-side"><span>${order.price.toFixed(2)}</span><span>${order.remaining.toFixed(2)}</span></div>`;
-                    });
-                    buyContainer.innerHTML = buyHtml || '<div class="order-book-row text-muted text-center">注文なし</div>';
-
-                    document.getElementById('spread-price').innerText = currentRate.toFixed(2);
-                }
-            } catch (error) {
-                console.error('Failed to update order book:', error);
-            }
-        }
-
         // リアルタイムで価格を更新
         async function updateMarketData() {
             try {
@@ -437,32 +376,36 @@
             }
         }
 
-        // 定期的に更新
+        // 定期的に更新（2秒間隔）
         function startRealtimeUpdates() {
-            // 5秒ごとに価格とチャート更新
             setInterval(async () => {
                 await updateMarketData();
-            }, 5000);
-
-            // 10秒ごとにオーダーブック更新
-            setInterval(async () => {
-                await updateOrderBook();
-            }, 10000);
+            }, 2000);
         }
 
-        function updateTimeframe(tf) {
+        async function updateTimeframe(points, button) {
             document.querySelectorAll('.btn-time').forEach(b => b.classList.remove('active'));
-            event.target.classList.add('active');
-            // タイムフレーム変更時にデータ再取得
-            fetchInitialData().then(data => {
-                chart.data.datasets[0].data = data;
-                chart.update();
-            });
+            button.classList.add('active');
+
+            // 指定された件数でデータ再取得
+            try {
+                const response = await fetch(`/api/rate-history?points=${points}`);
+                const data = await response.json();
+                if (data.success) {
+                    const newData = data.history.map(h => ({
+                        x: h.timestamp,
+                        y: h.rate
+                    }));
+                    chart.data.datasets[0].data = newData;
+                    chart.update();
+                }
+            } catch (error) {
+                console.error('Failed to update timeframe:', error);
+            }
         }
 
         window.onload = async () => {
             await initChart();
-            await updateOrderBook();
             await updateMarketData();
             startRealtimeUpdates();
         };

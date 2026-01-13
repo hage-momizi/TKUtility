@@ -146,19 +146,6 @@ function startWebServer(client) {
     }
   });
 
-  app.get('/api/order-book', (req, res) => {
-    try {
-      const orderBook = getOrderBook();
-      res.json({
-        success: true,
-        buyOrders: orderBook.buyOrders || [],
-        sellOrders: orderBook.sellOrders || []
-      });
-    } catch (error) {
-      console.error('Order book API error:', error);
-      res.status(500).json({ success: false, error: 'Failed to get order book' });
-    }
-  });
 
   app.listen(PORT, () => {
     console.log(`Web panel running at http://localhost:${PORT}`);

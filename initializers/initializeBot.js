@@ -195,14 +195,14 @@ function setupSchedules(client) {
     }
   }
 
-  // TKUCレート更新スケジュール（1分毎）
-  schedule.scheduleJob('* * * * *', async () => {
+  // TKUCレート更新スケジュール（2秒毎）
+  setInterval(async () => {
     try {
       await updateTKUCRate();
     } catch (error) {
       console.error('TKUCレート更新スケジュールエラー:', error);
     }
-  });
+  }, 2000);
 
   // 月末リセットスケジュール（毎月1日の0時0分）
   schedule.scheduleJob('0 0 1 * *', () => {
