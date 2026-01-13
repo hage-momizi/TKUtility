@@ -19,14 +19,15 @@ module.exports = {
 
       if (result.success) {
         const embed = new EmbedBuilder()
-          .setTitle('✅ 出金完了')
+          .setTitle('✅ TKUP出金完了')
           .setDescription(result.message)
           .addFields(
-            { name: '出金額', value: `${result.withdrawn} TKUP相当`, inline: true },
-            { name: '手数料', value: '3%', inline: true }
+            { name: '出金額', value: `${Math.round(result.withdrawn * 100) / 100} TKUP`, inline: true },
+            { name: '手数料', value: '3%（元の金額の）', inline: true },
+            { name: '入力額', value: `${amount} TKUP`, inline: true }
           )
           .setColor(0x00ff00)
-          .setFooter({ text: '出金処理完了' })
+          .setFooter({ text: '🚨 注意: 出金はTKUP（ゲーム内通貨）のみです。TKUCではありません。' })
           .setTimestamp();
 
         await interaction.reply({ embeds: [embed] });

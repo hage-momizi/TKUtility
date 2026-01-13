@@ -32,8 +32,11 @@ function initializeAIClient() {
 // AIクライアント（動的初期化）
 let aiClient = initializeAIClient();
 
-// レート更新カウンター（5回ごとに注文リセット）
-let rateUpdateCounter = 0;
+// オーダーブック・取引履歴最終リセット時刻
+let lastOrderBookReset = Date.now();
+let lastTransactionHistoryReset = Date.now();
+const ORDER_BOOK_RESET_INTERVAL = 24 * 60 * 60 * 1000; // 24時間
+const TRANSACTION_RESET_INTERVAL = 24 * 60 * 60 * 1000; // 24時間
 
 /**
  * ユーザー残高を取得
@@ -201,6 +204,44 @@ function getDynamicUpperLimit(marketData) {
  */
 async function updateTKUCRate() {
   try {
+    // 24時間ごとのオーダーブック自動リセット
+    const now = Date.now();
+    if (now - lastOrderBookReset >= ORDER_BOOK_RESET_INTERVAL) {
+      console.log('📊 24時間経過: オーダーブックをリセットします');
+      const orderBook = getOrderBook();
+
+      // 全ユーザーに対して、ロック済みの金額を返却
+      for (const order of [...orderBook.buyOrders, ...orderBook.sellOrders]) {
+        const balance = getUserBalance(order.userId);
+        if (order.type === 'buy') {
+          balance.tkup += order.remaining * order.price; // ロック済みTKUPを返却
+        } else if (order.type === 'sell') {
+          balance.tkuc += order.remaining; // ロック済みTKUCを返却
+        }
+        saveUserBalance(order.userId, balance);
+      }
+
+      // オーダーブックをリセット
+      saveJSON(FILES.ORDER_BOOK, { buyOrders: [], sellOrders: [] });
+      lastOrderBookReset = now;
+      console.log('✅ オーダーブック自動リセット完了（ユーザーにロック額を返却）');
+    }
+
+    // 24時間ごとの取引履歴リセット（レート計算用データをリセット）
+    if (now - lastTransactionHistoryReset >= TRANSACTION_RESET_INTERVAL) {
+      console.log('📊 24時間経過: レート計算用取引履歴をリセットします');
+      const history = loadJSON(FILES.TRANSACTION_HISTORY);
+
+      // 全ユーザーの取引履歴をクリア（レート計算に使う過去取引データをリセット）
+      for (const userId in history) {
+        history[userId] = {};
+      }
+
+      saveJSON(FILES.TRANSACTION_HISTORY, history);
+      lastTransactionHistoryReset = now;
+      console.log('✅ レート計算用取引履歴リセット完了');
+    }
+
     const currentRate = getTKUCRate();
     const rateData = loadJSON(FILES.TKUC_RATE);
 
