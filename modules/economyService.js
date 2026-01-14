@@ -70,6 +70,27 @@ function saveUserBalance(userId, balance) {
 }
 
 /**
+ * TKUP獲得量を計算
+ * @param {string} content - メッセージ内容
+ * @param {boolean} hasImage - 画像付きかどうか
+ * @returns {number} 獲得TKUP量
+ */
+function calculateTKUPGain(content, hasImage) {
+  let gain = 0;
+
+  if (hasImage) {
+    gain += 8; // 画像投稿ボーナス
+  }
+
+  if (content && content.trim()) {
+    const charCount = content.length;
+    gain += 4 + Math.min(20, charCount); // テキストメッセージ基本 + 文字数ボーナス
+  }
+
+  return Math.floor(gain);
+}
+
+/**
  * 需要影響を計算（tick方式）
  * @param {number} netDemand - 正味需要
  * @param {object} marketData - 市場データ
