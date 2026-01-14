@@ -13,7 +13,7 @@ async function execute(interaction, client) {
   }
 
   const guildId = interaction.guild.id;
-  const status = getBotStatus();
+  const status = getBotStatus(guildId);
 
   if (status.isRunning) {
     await interaction.reply({ content: '🤖 MarketBot は既に起動中です。', ephemeral: true });

@@ -1435,6 +1435,10 @@ function calculateSmartRateChange(marketData, chatActivity, top3Ratio, recentTra
     changePercent *= 0.2; // 5分の1に抑制
   }
 
+  // チャット盛り上がり度をレート計算に追加
+  const chatBoost = (chatActivity / 100) * 0.1; // 盛り上がり0-100% → 最大+0.1%
+  changePercent += chatBoost;
+
   // トレンド慣性更新（減衰）
   lastRateChange = changePercent * 0.85; // 毎tick15%減衰
 
@@ -1443,7 +1447,7 @@ function calculateSmartRateChange(marketData, chatActivity, top3Ratio, recentTra
     changePercent *= 0.3; // 下方向を弱める
   }
 
-  console.log(`📈 Tick変動: ノイズ=${noise.toFixed(4)}%, 需要=${demandImpact.toFixed(4)}%, 慣性=${momentum.toFixed(4)}%, 重力=${gravity.toFixed(4)}%, 最終=${changePercent.toFixed(4)}%`);
+  console.log(`📈 Tick変動: ノイズ=${noise.toFixed(4)}%, 需要=${demandImpact.toFixed(4)}%, 慣性=${momentum.toFixed(4)}%, 重力=${gravity.toFixed(4)}%, チャット=${chatBoost.toFixed(4)}%, 最終=${changePercent.toFixed(4)}%`);
   return changePercent;
 }
 

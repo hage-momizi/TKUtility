@@ -86,13 +86,8 @@ async function performBotTrade(guildId, client) {
     // 必要TKUP計算
     const requiredTKUP = tradeAmount * currentRate * 1.03; // 手数料込み
 
-    // BOT残高確認（仮想残高として常に十分）
-    const botBalance = { tkup: 100000, tkuc: 1000 }; // 仮想残高
-
-    if (botBalance.tkup < requiredTKUP) {
-      console.log('🤖 BOT取引スキップ: TKUP不足');
-      return false;
-    }
+    // BOT無限資金（市場操作なし設計なので無制限）
+    console.log(`🤖 BOT取引実行: ${tradeAmount} TKUC (${requiredTKUP} TKUP必要)`);
 
     // 取引実行
     const result = buyTKUC(BOT_USER_ID, tradeAmount);
@@ -138,6 +133,8 @@ async function performBotAction(guildId, client) {
   botState.actionCountThisHour++;
   botState.lastActionTime = now;
 
+  console.log(`🤖 [${guildId}] BOT行動実行: 取引 + 発言チェック`);
+
   // 取引実行
   const tradeSuccess = await performBotTrade(guildId, client);
 
@@ -145,6 +142,8 @@ async function performBotAction(guildId, client) {
   if (Math.random() < SPEAK_PROBABILITY) {
     const speech = BOT_SPEECHES[Math.floor(Math.random() * BOT_SPEECHES.length)];
     await sendBotMessage(speech, guildId, client);
+  } else {
+    console.log(`🤖 [${guildId}] BOT発言スキップ: 確率判定失敗`);
   }
 }
 
@@ -175,6 +174,14 @@ function startBot(guildId, client) {
   console.log(`🤖 [${guildId}] MarketBot 起動`);
   botState.isRunning = true;
   botState.lastHumanActivity = Date.now();
+
+  // 即時BOT行動実行（起動したらすぐに始める）
+  setTimeout(async () => {
+    const currentState = botStates.get(guildId);
+    if (currentState && currentState.isRunning) {
+      await performBotAction(guildId, client);
+    }
+  }, 1000); // 1秒後に即時実行
 
   // 定期行動タイマー設定
   const scheduleNextAction = () => {
@@ -228,13 +235,24 @@ function stopBot(guildId = null) {
 /**
  * 人間の活動を検知（BOT停止トリガー）
  * @param {string} guildId - ギルドID
+ * @param {object} client - Discordクライアント
  */
-function onHumanActivity(guildId) {
+function onHumanActivity(guildId, client) {
   const botState = botStates.get(guildId);
   if (botState) {
     botState.lastHumanActivity = Date.now();
     if (botState.isRunning) {
+      console.log(`🤖 [${guildId}] 人間活動検知: BOT停止 + 10分後再開タイマー設定`);
       stopBot(guildId);
+
+      // 10分後にBOT再開
+      setTimeout(() => {
+        const currentState = botStates.get(guildId);
+        if (currentState && !currentState.isRunning) {
+          console.log(`🤖 [${guildId}] 10分経過: BOT再開`);
+          startBot(guildId, client);
+        }
+      }, INACTIVE_TIMEOUT); // 10分
     }
   }
 }
