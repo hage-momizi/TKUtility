@@ -691,6 +691,59 @@
         let candlestickData = [];
         let volumeData = [];
         let currentChartType = 'line';
+        const MAX_DATA_POINTS = 1000; // 最大保存データポイント数
+
+        // LocalStorageにデータを保存
+        function saveChartData() {
+            try {
+                const dataToSave = {
+                    rateHistory,
+                    candlestickData,
+                    volumeData,
+                    currentRate,
+                    timestamp: Date.now()
+                };
+                localStorage.setItem('tkucChartData', JSON.stringify(dataToSave));
+            } catch (error) {
+                console.error('Failed to save chart data:', error);
+            }
+        }
+
+        // LocalStorageからデータを読み込み
+        function loadChartData() {
+            try {
+                const savedData = localStorage.getItem('tkucChartData');
+                if (savedData) {
+                    const data = JSON.parse(savedData);
+                    // 24時間以内のデータのみ有効
+                    if (Date.now() - data.timestamp < 24 * 60 * 60 * 1000) {
+                        rateHistory = data.rateHistory || [];
+                        candlestickData = data.candlestickData || [];
+                        volumeData = data.volumeData || [];
+                        currentRate = data.currentRate || 100;
+
+                        // データポイント数が上限を超えないよう調整
+                        if (rateHistory.length > MAX_DATA_POINTS) {
+                            rateHistory = rateHistory.slice(-MAX_DATA_POINTS);
+                        }
+                        if (candlestickData.length > MAX_DATA_POINTS) {
+                            candlestickData = candlestickData.slice(-MAX_DATA_POINTS);
+                        }
+                        if (volumeData.length > MAX_DATA_POINTS) {
+                            volumeData = volumeData.slice(-MAX_DATA_POINTS);
+                        }
+
+                        return true;
+                    } else {
+                        // 古いデータは削除
+                        localStorage.removeItem('tkucChartData');
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to load chart data:', error);
+            }
+            return false;
+        }
 
         async function fetchInitialData() {
             try {
@@ -811,7 +864,17 @@
                 }
             });
 
-            const data = await fetchInitialData();
+            // LocalStorageからデータを復元するか、APIから取得
+            let data;
+            if (loadChartData()) {
+                // 保存データがある場合はそれを使用
+                data = { candlestickData, rateHistory, volumeData };
+            } else {
+                // 保存データがない場合はAPIから取得
+                data = await fetchInitialData();
+                // 初回データを保存
+                saveChartData();
+            }
             mainSeries = chart.addLineSeries({
                 color: '#3B82F6',
                 lineWidth: 2.5,
@@ -964,6 +1027,9 @@
                     const ma25Data = calculateMA(rateHistory, 25);
                     if (ma7Data.length > 0) ma7Series.update(ma7Data[ma7Data.length - 1]);
                     if (ma25Data.length > 0) ma25Series.update(ma25Data[ma25Data.length - 1]);
+
+                    // データをLocalStorageに保存
+                    saveChartData();
                 }
             } catch (error) {
                 console.error('Failed to update market ', error);
