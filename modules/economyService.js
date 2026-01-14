@@ -91,11 +91,12 @@ function calculateTKUPGain(content, hasImage) {
 }
 
 /**
- * 基準価格を取得（現在のレートを基準に）
+ * 基準価格を取得（移動平均フェア価格）
  * @returns {number} 基準価格
  */
 function getFairPrice() {
-  return getTKUCRate(); // 現在のレートを基準価格として使用
+  const rateData = loadJSON(FILES.TKUC_RATE);
+  return rateData.fairPrice || 5000; // 移動平均フェア価格を返す
 }
 
 /**
@@ -286,6 +287,10 @@ async function updateTKUCRate() {
 
     const currentRate = getTKUCRate();
     const rateData = loadJSON(FILES.TKUC_RATE);
+
+    // フェア価格を移動平均更新
+    if (!rateData.fairPrice) rateData.fairPrice = 5000; // 初回初期化
+    rateData.fairPrice = rateData.fairPrice * 0.995 + currentRate * 0.005;
 
     // 市場状況を取得
     const marketData = analyzeMarketCondition();
@@ -1427,6 +1432,8 @@ function getRecentTradeCount() {
  * @returns {number} 変動率
  */
 function calculateSmartRateChange(marketData, chatActivity, top3Ratio, recentTrades, netDemand) {
+  const currentRate = getTKUCRate();
+
   // レジーム変更チェック（5〜15分に1回）
   if (Date.now() > marketState.nextRegimeChange) {
     const keys = Object.keys(REGIMES);
@@ -1471,11 +1478,14 @@ function calculateSmartRateChange(marketData, chatActivity, top3Ratio, recentTra
   changePercent = Math.max(-0.5, Math.min(0.5, changePercent));
 
   // 重力追加（基準価格からの距離）
-  const currentRate = getTKUCRate();
   const fairPrice = getFairPrice(); // 動的基準価格
-  const distance = (currentRate - fairPrice) / fairPrice;
-  const gravity = -distance * 0.1; // 高すぎ→下がりやすくなる
+  const deviation = (currentRate - fairPrice) / fairPrice;
+  const GRAVITY_K = 0.15;
+  let gravity = -deviation * GRAVITY_K;
+  gravity = Math.max(-0.3, Math.min(0.3, gravity)); // 安全クリップ
   changePercent += gravity;
+
+  console.log(`🌍 乖離=${(deviation*100).toFixed(2)}% 重力=${(gravity*100).toFixed(4)}%`);
 
   // 逆方向抑制強化：買われてるのに下がりにくくする
   if (netDemand > 0 && changePercent < 0) {
@@ -1495,6 +1505,10 @@ function calculateSmartRateChange(marketData, chatActivity, top3Ratio, recentTra
   }
 
   console.log(`📈 Tick変動: ノイズ=${noise.toFixed(4)}%, 需要=${demandImpact.toFixed(4)}%, 慣性=${momentum.toFixed(4)}%, 重力=${gravity.toFixed(4)}%, チャット=${chatBoost.toFixed(4)}%, 最終=${changePercent.toFixed(4)}%`);
+
+  // トレンド慣性更新
+  lastRateChange = changePercent;
+
   return changePercent;
 }
 
