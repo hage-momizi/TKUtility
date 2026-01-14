@@ -59,7 +59,8 @@ const commandHandlers = {
   'tk-itembuy': () => require('../commands/tk-itembuy'),
   'tk-itemhelp': () => require('../commands/tk-itemhelp'),
   'tk-sell': () => require('../commands/tk-sell'),
-  'tk-bot-channel-set': () => require('../commands/tk-bot-channel-set')
+  'tk-bot-channel-set': () => require('../commands/tk-bot-channel-set'),
+  'tk-bot-run': () => require('../commands/tk-bot-run')
 };
 
 /**
