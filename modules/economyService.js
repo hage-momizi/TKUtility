@@ -1374,8 +1374,8 @@ function getRecentTradeCount() {
  * @returns {number} 変動率
  */
 function calculateSmartRateChange(marketData, chatActivity, top3Ratio, recentTrades, netDemand) {
-  // ベース変動（-3%～+3%）
-  let changePercent = (Math.random() - 0.5) * 6;
+  // ベース変動（-0.3%～+0.3%）- 振れ幅を1/10に削減
+  let changePercent = (Math.random() - 0.5) * 0.6;
 
   // 市場需給調整
   if (marketData.buyPressure > marketData.sellPressure) {
@@ -1431,6 +1431,11 @@ function calculateSmartRateChange(marketData, chatActivity, top3Ratio, recentTra
     const clampedImpact = Math.max(-2, Math.min(2, finalImpact));
 
     changePercent += clampedImpact;
+
+    // 逆方向抑制：買われてるのに下がりにくくする
+    if (netDemand > 0 && changePercent < 0) {
+      changePercent *= 0.5; // 逆方向の動きを半分に抑制
+    }
 
     console.log(`💰 需要影響: netDemand=${netDemand}, impact=${impact.toFixed(4)}, liquidity=${effectiveLiquidity.toFixed(0)}, finalImpact=${finalImpact.toFixed(4)} → ${clampedImpact.toFixed(4)}%`);
   }

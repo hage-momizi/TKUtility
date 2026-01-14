@@ -40,6 +40,11 @@ module.exports = {
           .setColor(0x00ff00)
           .setTimestamp();
 
+        // サムネイル画像を設定
+        if (result.embedThumbnail) {
+          embed.setThumbnail(result.embedThumbnail);
+        }
+
         // ログ出力
         console.log(`[tk-buy] ${interaction.user.username} purchased ${roundedAmount} TKUC for ${result.tkupSpent} TKUP`);
 
