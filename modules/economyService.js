@@ -91,20 +91,28 @@ function calculateTKUPGain(content, hasImage) {
 }
 
 /**
+ * 基準価格を取得（現在のレートを基準に）
+ * @returns {number} 基準価格
+ */
+function getFairPrice() {
+  return getTKUCRate(); // 現在のレートを基準価格として使用
+}
+
+/**
  * 需要影響を計算（tick方式）
  * @param {number} netDemand - 正味需要
  * @param {object} marketData - 市場データ
- * @returns {number} 需要影響（±0.1%程度）
+ * @returns {number} 需要影響（±0.5%程度）
  */
 function calculateDemandImpact(netDemand, marketData) {
   if (netDemand === 0) return 0;
 
-  // 過去10分の需要を ±0.1%程度の影響に変換
-  const demandScale = 0.001; // 1需要あたり0.001%
+  // 過去10分の需要を ±0.5%程度の影響に変換（5倍強化）
+  const demandScale = 0.005; // 1需要あたり0.005%
   let impact = netDemand * demandScale;
 
-  // 最大±0.1%に制限
-  return Math.max(-0.1, Math.min(0.1, impact));
+  // 最大±0.5%に制限
+  return Math.max(-0.5, Math.min(0.5, impact));
 }
 
 /**
@@ -1395,8 +1403,8 @@ function getRecentTradeCount() {
  * @returns {number} 変動率
  */
 function calculateSmartRateChange(marketData, chatActivity, top3Ratio, recentTrades, netDemand) {
-  // ノイズ（超小） ±0.05%
-  const noise = (Math.random() - 0.5) * 0.1;
+  // ノイズ（強化） ±0.25%
+  const noise = (Math.random() - 0.5) * 0.5;
 
   // 需要影響（過去10分）
   const demandImpact = calculateDemandImpact(netDemand, marketData);
@@ -1412,19 +1420,30 @@ function calculateSmartRateChange(marketData, chatActivity, top3Ratio, recentTra
   // 合成
   let changePercent = (noise + demandImpact + momentum) * volatility;
 
-  // 1tick最大変動 ±0.2%
-  changePercent = Math.max(-0.2, Math.min(0.2, changePercent));
+  // 1tick最大変動 ±0.5%
+  changePercent = Math.max(-0.5, Math.min(0.5, changePercent));
 
-  // トレンド慣性更新
-  lastRateChange = changePercent;
+  // 重力追加（基準価格からの距離）
+  const currentRate = getTKUCRate();
+  const fairPrice = getFairPrice(); // 動的基準価格
+  const distance = (currentRate - fairPrice) / fairPrice;
+  const gravity = -distance * 0.1; // 高すぎ→下がりやすくなる
+  changePercent += gravity;
+
+  // 逆方向抑制強化：買われてるのに下がりにくくする
+  if (netDemand > 0 && changePercent < 0) {
+    changePercent *= 0.2; // 5分の1に抑制
+  }
+
+  // トレンド慣性更新（減衰）
+  lastRateChange = changePercent * 0.85; // 毎tick15%減衰
 
   // 下限・上限クッション
-  const currentRate = getTKUCRate();
   if (currentRate < 100 * 1.1 && changePercent < 0) {
     changePercent *= 0.3; // 下方向を弱める
   }
 
-  console.log(`📈 Tick変動: ノイズ=${noise.toFixed(4)}%, 需要=${demandImpact.toFixed(4)}%, 慣性=${momentum.toFixed(4)}%, 最終=${changePercent.toFixed(4)}%`);
+  console.log(`📈 Tick変動: ノイズ=${noise.toFixed(4)}%, 需要=${demandImpact.toFixed(4)}%, 慣性=${momentum.toFixed(4)}%, 重力=${gravity.toFixed(4)}%, 最終=${changePercent.toFixed(4)}%`);
   return changePercent;
 }
 
