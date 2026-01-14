@@ -1510,12 +1510,7 @@ function calculateSmartRateChange(marketData, chatActivity, top3Ratio, recentTra
   // 合成
   let changePercent = (noise + demandImpact + momentum) * volatility;
 
-  // 感情相場要素（3%の確率）
-  if (Math.random() < 0.03) {
-    const emotion = (Math.random() - 0.5) * 2; // -1〜+1
-    changePercent += emotion * 0.7;
-    console.log(`💥 感情相場発生！`);
-  }
+
 
   // マーケットの機嫌倍率をかける
   changePercent *= marketState.regime;
