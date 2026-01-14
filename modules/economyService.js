@@ -70,25 +70,20 @@ function saveUserBalance(userId, balance) {
 }
 
 /**
- * TKUP獲得を計算
- * @param {string} content - メッセージ内容
- * @param {boolean} hasImage - 画像付きかどうか
- * @returns {number} 獲得TKUP
+ * 需要影響を計算（tick方式）
+ * @param {number} netDemand - 正味需要
+ * @param {object} marketData - 市場データ
+ * @returns {number} 需要影響（±0.1%程度）
  */
-function calculateTKUPGain(content, hasImage = false) {
-  let gain = 0;
+function calculateDemandImpact(netDemand, marketData) {
+  if (netDemand === 0) return 0;
 
-  if (hasImage) {
-    gain += 8;
-  }
+  // 過去10分の需要を ±0.1%程度の影響に変換
+  const demandScale = 0.001; // 1需要あたり0.001%
+  let impact = netDemand * demandScale;
 
-  // テキスト投稿
-  if (content && content.trim()) {
-    const charCount = content.length;
-    gain += 4 + Math.min(20, charCount);
-  }
-
-  return Math.floor(gain);
+  // 最大±0.1%に制限
+  return Math.max(-0.1, Math.min(0.1, impact));
 }
 
 /**
@@ -199,8 +194,11 @@ function getDynamicUpperLimit(marketData) {
   return Math.min(10000, Math.max(1000, dynamicLimit));
 }
 
+// トレンド慣性用変数
+let lastRateChange = 0;
+
 /**
- * TKUCレートを更新（安定した変動）
+ * TKUCレートを更新（tick方式 - 2秒ごと）
  */
 async function updateTKUCRate() {
   try {
@@ -1375,7 +1373,7 @@ function getRecentTradeCount() {
 }
 
 /**
- * スマートレート計算（AI代替）
+ * スマートレート計算（tick方式）
  * @param {object} marketData - 市場データ
  * @param {number} chatActivity - チャット盛り上がり度
  * @param {number} top3Ratio - 上位3人保有割合
@@ -1384,72 +1382,36 @@ function getRecentTradeCount() {
  * @returns {number} 変動率
  */
 function calculateSmartRateChange(marketData, chatActivity, top3Ratio, recentTrades, netDemand) {
-  // ベース変動（-0.3%～+0.3%）- 振れ幅を1/10に削減
-  let changePercent = (Math.random() - 0.5) * 0.6;
+  // ノイズ（超小） ±0.05%
+  const noise = (Math.random() - 0.5) * 0.1;
 
-  // 市場需給調整
-  if (marketData.buyPressure > marketData.sellPressure) {
-    changePercent += 0.8; // 買い圧力で上昇
-  } else if (marketData.sellPressure > marketData.buyPressure) {
-    changePercent -= 0.8; // 売り圧力で下降
+  // 需要影響（過去10分）
+  const demandImpact = calculateDemandImpact(netDemand, marketData);
+
+  // トレンド慣性（前回変動の残り）
+  const momentum = lastRateChange * 0.3;
+
+  // ボラティリティ制御（取引活発度連動）
+  let volatility = 1.0;
+  if (recentTrades >= 5) volatility = 2.0;
+  else if (recentTrades >= 2) volatility = 1.3;
+
+  // 合成
+  let changePercent = (noise + demandImpact + momentum) * volatility;
+
+  // 1tick最大変動 ±0.2%
+  changePercent = Math.max(-0.2, Math.min(0.2, changePercent));
+
+  // トレンド慣性更新
+  lastRateChange = changePercent;
+
+  // 下限・上限クッション
+  const currentRate = getTKUCRate();
+  if (currentRate < 100 * 1.1 && changePercent < 0) {
+    changePercent *= 0.3; // 下方向を弱める
   }
 
-  // チャット盛り上がり調整
-  if (chatActivity > 50) {
-    changePercent += 0.7; // 盛り上がってると上昇
-  } else if (chatActivity < 20) {
-    changePercent -= 0.3; // 盛り上がりが少ないと下降
-  }
-
-  // 上位保有者集中度調整
-  if (top3Ratio > 0.7) {
-    changePercent -= 1.0; // 寡占化で下降
-  } else if (top3Ratio < 0.3) {
-    changePercent += 0.5; // 分散化で上昇
-  }
-
-  // 取引活発度調整
-  if (recentTrades > 10) {
-    changePercent += 0.6; // 取引活発で上昇
-  } else if (recentTrades < 2) {
-    changePercent -= 0.4; // 取引少ないと下降
-  }
-
-  // TKUP/TKUC比率調整
-  const tkupTkucRatio = marketData.tkupTkucRatio;
-  if (tkupTkucRatio > 2) {
-    changePercent -= 0.5; // TKUP過多で下降
-  } else if (tkupTkucRatio < 0.5) {
-    changePercent += 0.5; // TKUC過多で上昇
-  }
-
-  // 需要影響計算（買-売）
-  if (netDemand !== 0) {
-    const currentRate = getTKUCRate();
-    const MIN_LIQUIDITY = 100;
-    const coefficient = 0.5; // 影響度係数（100倍に調整）
-
-    // 流動性計算（市場規模）
-    const marketLiquidity = marketData.totalTKUP + (marketData.totalTKUC * currentRate);
-    const effectiveLiquidity = Math.sqrt(Math.max(marketLiquidity, MIN_LIQUIDITY)); // √スケールで緩和
-
-    // 符号付き対数減衰関数
-    const impact = Math.sign(netDemand) * Math.log(1 + Math.abs(netDemand)) * coefficient;
-    const finalImpact = impact / effectiveLiquidity;
-
-    // 1ステップ変動上限（±2%）
-    const clampedImpact = Math.max(-2, Math.min(2, finalImpact));
-
-    changePercent += clampedImpact;
-
-    // 逆方向抑制：買われてるのに下がりにくくする
-    if (netDemand > 0 && changePercent < 0) {
-      changePercent *= 0.5; // 逆方向の動きを半分に抑制
-    }
-
-    console.log(`💰 需要影響: netDemand=${netDemand}, impact=${impact.toFixed(4)}, liquidity=${effectiveLiquidity.toFixed(0)}, finalImpact=${finalImpact.toFixed(4)} → ${clampedImpact.toFixed(4)}%`);
-  }
-
+  console.log(`📈 Tick変動: ノイズ=${noise.toFixed(4)}%, 需要=${demandImpact.toFixed(4)}%, 慣性=${momentum.toFixed(4)}%, 最終=${changePercent.toFixed(4)}%`);
   return changePercent;
 }
 

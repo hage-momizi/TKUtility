@@ -39,6 +39,12 @@ function getBotChannel(guildId, client) {
     if (channelId && client.channels.cache.has(channelId)) {
       return client.channels.cache.get(channelId);
     }
+
+    // デフォルト動作：ギルドのシステムチャンネルを使用
+    const guild = client.guilds.cache.get(guildId);
+    if (guild?.systemChannel) {
+      return guild.systemChannel;
+    }
   } catch (error) {
     console.error('BOTチャンネル取得エラー:', error.message);
   }
