@@ -454,7 +454,9 @@ function buyTKUC(userId, tkucAmount) {
   // 手数料込みの必要TKUP
   const tkupNeeded = tkucAmount * rate * 1.03; // 3%手数料に変更
 
-  if (balance.tkup < tkupNeeded) {
+  // BOTの場合は無限資金（残高チェックスキップ）
+  const isBot = userId === 'market_bot';
+  if (!isBot && balance.tkup < tkupNeeded) {
     return { success: false, message: 'TKUP残高が不足しています。' };
   }
 
