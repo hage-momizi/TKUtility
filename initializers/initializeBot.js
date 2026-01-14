@@ -202,7 +202,7 @@ function setupSchedules(client) {
     }
   }
 
-  // TKUCレート更新スケジュール（2秒毎）
+  // TKUCレート更新スケジュール（2秒毎 - 常時実行）
   setInterval(async () => {
     try {
       await updateTKUCRate();
@@ -210,6 +210,8 @@ function setupSchedules(client) {
       console.error('TKUCレート更新スケジュールエラー:', error);
     }
   }, 2000);
+
+  console.log('✅ 常時レート更新開始（2秒間隔）');
 
   // 月末リセットスケジュール（毎月1日の0時0分）
   schedule.scheduleJob('0 0 1 * *', () => {
