@@ -438,8 +438,8 @@ function buyTKUC(userId, tkucAmount) {
 
   return {
     success: true,
-    message: `${tkucAmount} TKUCを購入しました。（${tkupSpent} TKUP消費、手数料3%）`,
-    tkupSpent: tkupSpent,
+    message: `${tkucAmount} TKUCを購入しました。（${tkupNeeded} TKUP消費、手数料3%）`,
+    tkupSpent: tkupNeeded,
     tkucReceived: tkucAmount,
     embedThumbnail: 'https://cdn.999i.org/momizisan/anigif.gif'
   };
