@@ -10,12 +10,8 @@ const ACTION_INTERVAL_MAX = 10 * 60 * 1000; // 10分
 const MAX_ACTIONS_PER_HOUR = 12; // 1時間あたり最大12回
 const SPEAK_PROBABILITY = 0.25; // 発言確率25%
 
-// BOT状態
-let isRunning = false;
-let lastHumanActivity = Date.now();
-let actionTimer = null;
-let actionCountThisHour = 0;
-let lastActionTime = 0;
+// ギルド別BOT状態管理
+const botStates = new Map(); // guildId -> {isRunning, lastHumanActivity, actionTimer, actionCountThisHour, lastActionTime}
 
 // BOTの発言リスト
 const BOT_SPEECHES = [
@@ -119,24 +115,27 @@ async function performBotTrade(guildId, client) {
  * @param {object} client - Discordクライアント
  */
 async function performBotAction(guildId, client) {
+  const botState = botStates.get(guildId);
+  if (!botState) return;
+
   // 1時間あたりの行動回数制限
   const now = Date.now();
-  if (now - lastActionTime > 60 * 60 * 1000) {
-    actionCountThisHour = 0;
+  if (now - botState.lastActionTime > 60 * 60 * 1000) {
+    botState.actionCountThisHour = 0;
   }
 
-  if (actionCountThisHour >= MAX_ACTIONS_PER_HOUR) {
-    console.log('🤖 BOT行動スキップ: 1時間上限到達');
+  if (botState.actionCountThisHour >= MAX_ACTIONS_PER_HOUR) {
+    console.log(`🤖 [${guildId}] BOT行動スキップ: 1時間上限到達`);
     return;
   }
 
-  actionCountThisHour++;
-  lastActionTime = now;
+  botState.actionCountThisHour++;
+  botState.lastActionTime = now;
 
   // 取引実行
   const tradeSuccess = await performBotTrade(guildId, client);
 
-  // 発言（取引成功時のみ、または独立）
+  // 発言（独立して実行）
   if (Math.random() < SPEAK_PROBABILITY) {
     const speech = BOT_SPEECHES[Math.floor(Math.random() * BOT_SPEECHES.length)];
     await sendBotMessage(speech, guildId, client);
@@ -149,23 +148,37 @@ async function performBotAction(guildId, client) {
  * @param {object} client - Discordクライアント
  */
 function startBot(guildId, client) {
-  if (isRunning) {
-    console.log('🤖 BOT起動スキップ: 既に実行中');
+  let botState = botStates.get(guildId);
+
+  if (!botState) {
+    botState = {
+      isRunning: false,
+      lastHumanActivity: Date.now(),
+      actionTimer: null,
+      actionCountThisHour: 0,
+      lastActionTime: 0
+    };
+    botStates.set(guildId, botState);
+  }
+
+  if (botState.isRunning) {
+    console.log(`🤖 [${guildId}] BOT起動スキップ: 既に実行中`);
     return;
   }
 
-  console.log('🤖 MarketBot 起動');
-  isRunning = true;
-  lastHumanActivity = Date.now();
+  console.log(`🤖 [${guildId}] MarketBot 起動`);
+  botState.isRunning = true;
+  botState.lastHumanActivity = Date.now();
 
   // 定期行動タイマー設定
   const scheduleNextAction = () => {
-    if (!isRunning) return;
+    const currentState = botStates.get(guildId);
+    if (!currentState || !currentState.isRunning) return;
 
     const delay = Math.random() * (ACTION_INTERVAL_MAX - ACTION_INTERVAL_MIN) + ACTION_INTERVAL_MIN;
-    actionTimer = setTimeout(async () => {
+    currentState.actionTimer = setTimeout(async () => {
       // 非アクティブ時間が10分以上なら行動
-      if (Date.now() - lastHumanActivity >= INACTIVE_TIMEOUT) {
+      if (Date.now() - currentState.lastHumanActivity >= INACTIVE_TIMEOUT) {
         await performBotAction(guildId, client);
       }
       scheduleNextAction();
@@ -177,40 +190,75 @@ function startBot(guildId, client) {
 
 /**
  * BOTを停止
+ * @param {string} guildId - ギルドID
  */
-function stopBot() {
-  if (!isRunning) return;
-
-  console.log('🤖 MarketBot 停止');
-  isRunning = false;
-
-  if (actionTimer) {
-    clearTimeout(actionTimer);
-    actionTimer = null;
+function stopBot(guildId = null) {
+  if (guildId) {
+    // 特定ギルドのBOT停止
+    const botState = botStates.get(guildId);
+    if (botState && botState.isRunning) {
+      console.log(`🤖 [${guildId}] MarketBot 停止`);
+      botState.isRunning = false;
+      if (botState.actionTimer) {
+        clearTimeout(botState.actionTimer);
+        botState.actionTimer = null;
+      }
+    }
+  } else {
+    // 全BOT停止
+    for (const [gid, state] of botStates) {
+      if (state.isRunning) {
+        console.log(`🤖 [${gid}] MarketBot 停止`);
+        state.isRunning = false;
+        if (state.actionTimer) {
+          clearTimeout(state.actionTimer);
+          state.actionTimer = null;
+        }
+      }
+    }
   }
 }
 
 /**
  * 人間の活動を検知（BOT停止トリガー）
+ * @param {string} guildId - ギルドID
  */
-function onHumanActivity() {
-  lastHumanActivity = Date.now();
-  if (isRunning) {
-    stopBot();
+function onHumanActivity(guildId) {
+  const botState = botStates.get(guildId);
+  if (botState) {
+    botState.lastHumanActivity = Date.now();
+    if (botState.isRunning) {
+      stopBot(guildId);
+    }
   }
 }
 
 /**
  * BOT状態を取得
+ * @param {string} guildId - ギルドID
  * @returns {object} BOT状態
  */
-function getBotStatus() {
-  return {
-    isRunning,
-    lastHumanActivity,
-    actionCountThisHour,
-    timeSinceLastActivity: Date.now() - lastHumanActivity,
-  };
+function getBotStatus(guildId = null) {
+  if (guildId) {
+    return botStates.get(guildId) || {
+      isRunning: false,
+      lastHumanActivity: 0,
+      actionCountThisHour: 0,
+      timeSinceLastActivity: 0,
+    };
+  } else {
+    // 全BOT状態
+    const allStates = {};
+    for (const [gid, state] of botStates) {
+      allStates[gid] = {
+        isRunning: state.isRunning,
+        lastHumanActivity: state.lastHumanActivity,
+        actionCountThisHour: state.actionCountThisHour,
+        timeSinceLastActivity: Date.now() - state.lastHumanActivity,
+      };
+    }
+    return allStates;
+  }
 }
 
 module.exports = {

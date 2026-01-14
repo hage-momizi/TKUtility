@@ -438,9 +438,10 @@ function buyTKUC(userId, tkucAmount) {
 
   return {
     success: true,
-    message: `${tkucAmount} TKUCを購入しました。（${tkupNeeded} TKUP消費、手数料3%）`,
-    tkupSpent: tkupNeeded,
-    tkucReceived: tkucAmount
+    message: `${tkucAmount} TKUCを購入しました。（${tkupSpent} TKUP消費、手数料3%）`,
+    tkupSpent: tkupSpent,
+    tkucReceived: tkucAmount,
+    embedThumbnail: 'https://cdn.999i.org/momizisan/anigif.gif'
   };
 }
 
@@ -1416,22 +1417,22 @@ function calculateSmartRateChange(marketData, chatActivity, top3Ratio, recentTra
   if (netDemand !== 0) {
     const currentRate = getTKUCRate();
     const MIN_LIQUIDITY = 100;
-    const coefficient = 0.005; // 影響度係数
+    const coefficient = 0.5; // 影響度係数（100倍に調整）
 
     // 流動性計算（市場規模）
     const marketLiquidity = marketData.totalTKUP + (marketData.totalTKUC * currentRate);
-    const safeLiquidity = Math.max(marketLiquidity, MIN_LIQUIDITY);
+    const effectiveLiquidity = Math.sqrt(Math.max(marketLiquidity, MIN_LIQUIDITY)); // √スケールで緩和
 
     // 符号付き対数減衰関数
     const impact = Math.sign(netDemand) * Math.log(1 + Math.abs(netDemand)) * coefficient;
-    const finalImpact = impact / safeLiquidity;
+    const finalImpact = impact / effectiveLiquidity;
 
     // 1ステップ変動上限（±2%）
     const clampedImpact = Math.max(-2, Math.min(2, finalImpact));
 
     changePercent += clampedImpact;
 
-    console.log(`💰 需要影響: netDemand=${netDemand}, impact=${impact.toFixed(4)}, liquidity=${safeLiquidity.toFixed(0)}, finalImpact=${finalImpact.toFixed(4)} → ${clampedImpact.toFixed(4)}%`);
+    console.log(`💰 需要影響: netDemand=${netDemand}, impact=${impact.toFixed(4)}, liquidity=${effectiveLiquidity.toFixed(0)}, finalImpact=${finalImpact.toFixed(4)} → ${clampedImpact.toFixed(4)}%`);
   }
 
   return changePercent;

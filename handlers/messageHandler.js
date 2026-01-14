@@ -427,8 +427,8 @@ async function handleInteraction(interaction, client) {
 
       try {
         // 経済コマンド実行時はBOTを停止
-        if (commandName.startsWith('tk-') && commandName !== 'tk-bot-channel-set') {
-          onHumanActivity();
+        if (commandName.startsWith('tk-') && commandName !== 'tk-bot-channel-set' && commandName !== 'tk-bot-run') {
+          onHumanActivity(interaction.guild.id);
         }
 
         const module = handler();
