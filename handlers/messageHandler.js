@@ -3,6 +3,7 @@ const { FILES, aiRateLimit, ADMIN_COMMANDS } = require('../config/constants');
 const { loadJSON, saveJSON } = require('../modules/fileStorage');
 const { streamAIResponse, extractUserInfoFromChat } = require('../modules/aiService');
 const { calculateTKUPGain, earnTKUP } = require('../modules/economyService');
+const { onHumanActivity } = require('../modules/marketBotService');
 
 // コマンドのインポート（自動化のため、execute時に動的に読み込み）
 const commandModules = {};
@@ -423,6 +424,11 @@ async function handleInteraction(interaction, client) {
       }
 
       try {
+        // 経済コマンド実行時はBOTを停止
+        if (commandName.startsWith('tk-') && commandName !== 'tk-bot-channel-set') {
+          onHumanActivity();
+        }
+
         const module = handler();
         // volumeコマンドの場合は追加パラメータを渡す
         if (commandName === 'volume') {

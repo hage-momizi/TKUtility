@@ -252,14 +252,15 @@ async function updateTKUCRate() {
     const chatActivity = analyzeChatActivity(); // チャット盛り上がり度
     const top3Ratio = analyzeTop3Ratio(); // 上位3人の保有割合
     const recentTrades = getRecentTradeCount(); // 最近の取引数
+    const netDemand = getNetDemand(); // 正味需要（買-売）
 
-    console.log(`🔍 デバッグ: recentTrades=${recentTrades}, chatActivity=${chatActivity.toFixed(1)}, top3Ratio=${top3Ratio.toFixed(2)}`);
+    console.log(`🔍 デバッグ: recentTrades=${recentTrades}, chatActivity=${chatActivity.toFixed(1)}, top3Ratio=${top3Ratio.toFixed(2)}, netDemand=${netDemand}`);
 
     let changePercent;
 
     // シンプル計算のみを使用（安定性重視）
     console.log('📊 プログラム計算を使用');
-    changePercent = calculateSmartRateChange(marketData, chatActivity, top3Ratio, recentTrades);
+    changePercent = calculateSmartRateChange(marketData, chatActivity, top3Ratio, recentTrades, netDemand);
     console.log(`📊 スマート計算: ${changePercent.toFixed(2)}%`);
 
     // 追加の市場調整（売り圧力影響を大幅緩和）
@@ -808,6 +809,59 @@ async function testRateUpdate() {
 }
 
 /**
+ * 需要影響テスト（デバッグ用）
+ */
+function testDemandImpact() {
+  console.log('🧪 需要影響テスト開始...');
+
+  // テストケース1: 買い需要が多い
+  const testMarketData1 = {
+    totalTKUP: 10000,
+    totalTKUC: 50,
+    buyPressure: 5,
+    sellPressure: 2,
+    tkupTkucRatio: 1.0
+  };
+  const result1 = calculateSmartRateChange(testMarketData1, 30, 0.5, 8, 20);
+  console.log(`テスト1 (買い需要20): ${result1.toFixed(2)}%`);
+
+  // テストケース2: 売り需要が多い
+  const testMarketData2 = {
+    totalTKUP: 10000,
+    totalTKUC: 50,
+    buyPressure: 2,
+    sellPressure: 5,
+    tkupTkucRatio: 1.0
+  };
+  const result2 = calculateSmartRateChange(testMarketData2, 30, 0.5, 8, -20);
+  console.log(`テスト2 (売り需要20): ${result2.toFixed(2)}%`);
+
+  // テストケース3: クジラ大量購入
+  const testMarketData3 = {
+    totalTKUP: 10000,
+    totalTKUC: 50,
+    buyPressure: 5,
+    sellPressure: 2,
+    tkupTkucRatio: 1.0
+  };
+  const result3 = calculateSmartRateChange(testMarketData3, 30, 0.5, 8, 100);
+  console.log(`テスト3 (クジラ購入100): ${result3.toFixed(2)}%`);
+
+  // テストケース4: 小規模市場
+  const testMarketData4 = {
+    totalTKUP: 100,
+    totalTKUC: 1,
+    buyPressure: 5,
+    sellPressure: 2,
+    tkupTkucRatio: 1.0
+  };
+  const result4 = calculateSmartRateChange(testMarketData4, 30, 0.5, 8, 20);
+  console.log(`テスト4 (小規模市場): ${result4.toFixed(2)}%`);
+
+  console.log('🧪 需要影響テスト完了');
+}
+
+/**
  * TKUPランキングを取得
  * @param {number} limit - 上位表示数
  * @returns {Array} ランキング配列
@@ -1234,6 +1288,45 @@ function analyzeTop3Ratio() {
 }
 
 /**
+ * 正味需要を計算（買-売）
+ * @returns {number} 過去10分のTKUC正味需要
+ */
+function getNetDemand() {
+  const history = loadJSON(FILES.TRANSACTION_HISTORY);
+  const now = Date.now();
+  const recentTime = 10 * 60 * 1000; // 過去10分
+
+  let buyVolume = 0;
+  let sellVolume = 0;
+
+  for (const [userId, userHistory] of Object.entries(history)) {
+    if (userHistory && typeof userHistory === 'object') {
+      for (const [type, transactions] of Object.entries(userHistory)) {
+        if (Array.isArray(transactions)) {
+          const recentTrades = transactions.filter(tx =>
+            tx && typeof tx.timestamp === 'number' && now - tx.timestamp < recentTime
+          );
+
+          for (const trade of recentTrades) {
+            if (['buy', 'market_buy'].includes(type)) {
+              // TKUC購入量
+              buyVolume += trade.tkucAmount || 0;
+            } else if (['sell', 'market_sell'].includes(type)) {
+              // TKUC売却量
+              sellVolume += trade.tkucAmount || 0;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  const netDemand = buyVolume - sellVolume;
+  console.log(`📊 正味需要: ${netDemand} TKUC (買:${buyVolume} - 売:${sellVolume})`);
+  return netDemand;
+}
+
+/**
  * 最近の取引数をカウント
  * @returns {number} 過去10分の取引数
  */
@@ -1276,9 +1369,10 @@ function getRecentTradeCount() {
  * @param {number} chatActivity - チャット盛り上がり度
  * @param {number} top3Ratio - 上位3人保有割合
  * @param {number} recentTrades - 最近の取引数
+ * @param {number} netDemand - 正味需要（買-売）
  * @returns {number} 変動率
  */
-function calculateSmartRateChange(marketData, chatActivity, top3Ratio, recentTrades) {
+function calculateSmartRateChange(marketData, chatActivity, top3Ratio, recentTrades, netDemand) {
   // ベース変動（-3%～+3%）
   let changePercent = (Math.random() - 0.5) * 6;
 
@@ -1316,6 +1410,28 @@ function calculateSmartRateChange(marketData, chatActivity, top3Ratio, recentTra
     changePercent -= 0.5; // TKUP過多で下降
   } else if (tkupTkucRatio < 0.5) {
     changePercent += 0.5; // TKUC過多で上昇
+  }
+
+  // 需要影響計算（買-売）
+  if (netDemand !== 0) {
+    const currentRate = getTKUCRate();
+    const MIN_LIQUIDITY = 100;
+    const coefficient = 0.005; // 影響度係数
+
+    // 流動性計算（市場規模）
+    const marketLiquidity = marketData.totalTKUP + (marketData.totalTKUC * currentRate);
+    const safeLiquidity = Math.max(marketLiquidity, MIN_LIQUIDITY);
+
+    // 符号付き対数減衰関数
+    const impact = Math.sign(netDemand) * Math.log(1 + Math.abs(netDemand)) * coefficient;
+    const finalImpact = impact / safeLiquidity;
+
+    // 1ステップ変動上限（±2%）
+    const clampedImpact = Math.max(-2, Math.min(2, finalImpact));
+
+    changePercent += clampedImpact;
+
+    console.log(`💰 需要影響: netDemand=${netDemand}, impact=${impact.toFixed(4)}, liquidity=${safeLiquidity.toFixed(0)}, finalImpact=${finalImpact.toFixed(4)} → ${clampedImpact.toFixed(4)}%`);
   }
 
   return changePercent;
@@ -1500,4 +1616,5 @@ module.exports = {
   formatBoosterInfo,
   testRateUpdate, // デバッグ用
   testAIConnection, // デバッグ用
+  testDemandImpact, // デバッグ用
 };

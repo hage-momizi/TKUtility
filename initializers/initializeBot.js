@@ -4,6 +4,7 @@ const schedule = require('node-schedule');
 const { startWebServer } = require('../webServer');
 const { startRealtimeMonitoring } = require('../modules/earthquakeService');
 const { updateTKUCRate, resetAllBalances } = require('../modules/economyService');
+const { startBot } = require('../modules/marketBotService');
 const { FILES, LAVALINK_CONFIG } = require('../config/constants');
 const playLofiCommand = require('../commands/play-lofi');
 const newsTimesetCommand = require('../commands/news_timeset');
@@ -33,6 +34,12 @@ async function initializeBot(client) {
 
   // 地震情報リアルタイム監視開始
   startRealtimeMonitoring(client);
+
+  // MarketBot起動（全ギルド）
+  for (const [guildId, guild] of client.guilds.cache) {
+    startBot(guildId, client);
+    console.log(`🤖 MarketBot started for guild: ${guild.name} (${guildId})`);
+  }
 }
 
 /**
