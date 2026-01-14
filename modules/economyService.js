@@ -300,10 +300,20 @@ async function updateTKUCRate() {
       console.log(`📈 上限接近調整: -${additionalPressure.toFixed(1)}%追加下降`);
     }
 
-    // 下限保護強化
+    // レート更新間隔制御（同じ需要状態で何度も計算しない）
+    const lastRateUpdate = rateData.lastUpdate || 0;
+    const timeSinceLastUpdate = Date.now() - lastRateUpdate;
+    const minUpdateInterval = 30 * 1000; // 30秒以上間隔を空ける
+
+    if (timeSinceLastUpdate < minUpdateInterval) {
+      console.log(`⏰ レート更新スキップ: ${Math.round(timeSinceLastUpdate/1000)}秒前`);
+      return; // 更新をスキップ
+    }
+
+    // 下限保護強化（クッション化）
     if (currentRate <= lowerLimit * 1.1) { // 下限の110%以下
-      // 強制的に上昇させる
-      changePercent = Math.max(3, changePercent); // 最低+3%保証
+      // 強制的に上昇させる（最低+0.3%保証）- バネからクッションへ
+      changePercent = Math.max(0.3, changePercent);
       console.log(`🚨 下限保護発動: 強制上昇 +${changePercent.toFixed(2)}%`);
     } else if (currentRate < lowerLimit * 1.2) { // 下限の120%未満
       // 通常の下限接近調整
