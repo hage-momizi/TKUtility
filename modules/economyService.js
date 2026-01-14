@@ -226,6 +226,21 @@ function getDynamicUpperLimit(marketData) {
 // トレンド慣性用変数
 let lastRateChange = 0;
 
+// マーケット状態管理
+let marketState = {
+  regime: 1.0,           // 現在の機嫌倍率
+  nextRegimeChange: 0,   // 次回変更時刻
+  trendPower: 0          // トレンド強さ
+};
+
+// レジーム定義
+const REGIMES = {
+  calm: 0.5,     // おとなしい
+  normal: 1.0,   // 普通
+  wild: 1.8,     // 荒れてる
+  crazy: 3.0     // バブル/クラッシュ
+};
+
 /**
  * TKUCレートを更新（tick方式 - 2秒ごと）
  */
@@ -1405,6 +1420,15 @@ function getRecentTradeCount() {
  * @returns {number} 変動率
  */
 function calculateSmartRateChange(marketData, chatActivity, top3Ratio, recentTrades, netDemand) {
+  // レジーム変更チェック（5〜15分に1回）
+  if (Date.now() > marketState.nextRegimeChange) {
+    const keys = Object.keys(REGIMES);
+    const key = keys[Math.floor(Math.random() * keys.length)];
+    marketState.regime = REGIMES[key];
+    marketState.nextRegimeChange = Date.now() + (5 + Math.random() * 10) * 60 * 1000;
+    console.log(`🌪️ マーケット状態変更: ${key} (${marketState.regime}倍)`);
+  }
+
   // ノイズ（強化） ±0.25%
   const noise = (Math.random() - 0.5) * 0.5;
 
@@ -1421,6 +1445,20 @@ function calculateSmartRateChange(marketData, chatActivity, top3Ratio, recentTra
 
   // 合成
   let changePercent = (noise + demandImpact + momentum) * volatility;
+
+  // 感情相場要素（3%の確率）
+  if (Math.random() < 0.03) {
+    const emotion = (Math.random() - 0.5) * 2; // -1〜+1
+    changePercent += emotion * 0.7;
+    console.log(`💥 感情相場発生！`);
+  }
+
+  // マーケットの機嫌倍率をかける
+  changePercent *= marketState.regime;
+
+  // トレンド強さの慣性
+  marketState.trendPower = marketState.trendPower * 0.9 + Math.abs(changePercent) * 0.1;
+  changePercent *= (1 + marketState.trendPower);
 
   // 1tick最大変動 ±0.5%
   changePercent = Math.max(-0.5, Math.min(0.5, changePercent));

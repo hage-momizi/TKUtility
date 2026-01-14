@@ -211,7 +211,7 @@
                         <i class="fa-solid fa-chart-line text-muted"></i>
                     </div>
                     <div class="chart-wrapper">
-                        <canvas id="mainRateChart"></canvas>
+                        <div id="mainRateChart" style="width: 100%; height: 100%;"></div>
                     </div>
                 </div>
             </div>
@@ -247,14 +247,13 @@
 
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/date-fns@2.29.3/index.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@2.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <script src="https://unpkg.com/lightweight-charts@4.1.0/dist/lightweight-charts.standalone.production.js"></script>
 
     <script>
         // --- リアルデータ取得とチャート管理 ---
         let currentRate = 100;
         let chart;
+        let lineSeries;
         let rateHistory = [];
 
         // APIから初期データを取得
@@ -265,72 +264,129 @@
                 if (data.success) {
                     currentRate = data.currentRate;
                     rateHistory = data.history.map(h => ({
-                        x: h.timestamp,
-                        y: h.rate
+                        time: Math.floor(h.timestamp / 1000), // Lightweight ChartsはUnix timestamp
+                        value: h.rate
                     }));
                     return rateHistory;
                 }
             } catch (error) {
                 console.error('Failed to fetch initial data:', error);
+                // フォールバックデータ
+                showErrorNotification('データ取得に失敗しました。フォールバックデータを表示します。');
+                return generateFallbackData();
             }
             return [];
         }
 
-        async function initChart() {
-            const ctx = document.getElementById('mainRateChart').getContext('2d');
+        // フォールバックデータ生成
+        function generateFallbackData() {
+            const now = Math.floor(Date.now() / 1000);
+            const basePrice = 500;
+            const data = [];
 
-            // グラデーションの作成
-            const gradient = ctx.createLinearGradient(0, 0, 0, 400);
-            gradient.addColorStop(0, 'rgba(240, 185, 11, 0.2)');
-            gradient.addColorStop(1, 'rgba(240, 185, 11, 0)');
+            for (let i = 49; i >= 0; i--) {
+                const time = now - (i * 60); // 1分間隔
+                const value = basePrice + (Math.random() - 0.5) * 20; // ±10のランダム
+                data.push({ time, value });
+            }
 
-            const initialData = await fetchInitialData();
+            currentRate = data[data.length - 1].value;
+            return data;
+        }
 
-            chart = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    datasets: [{
-                        label: 'TKUC/TKUP',
-                        data: initialData,
-                        borderColor: '#f0b90b',
-                        borderWidth: 2,
-                        pointRadius: 0,
-                        fill: true,
-                        backgroundColor: gradient,
-                        tension: 0.1
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    interaction: {
-                        intersect: false,
-                        mode: 'index',
-                    },
-                    scales: {
-                        x: {
-                            type: 'time',
-                            time: { unit: 'minute' },
-                            grid: { color: '#2b2f36' },
-                            ticks: { color: '#848e9c' }
-                        },
-                        y: {
-                            grid: { color: '#2b2f36' },
-                            ticks: { color: '#848e9c' }
-                        }
-                    },
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    return 'TKUP: ' + context.parsed.y.toFixed(2);
-                                }
-                            }
-                        }
-                    }
+        // エラー通知表示
+        function showErrorNotification(message) {
+            // 既存の通知を削除
+            const existingNotification = document.querySelector('.error-notification');
+            if (existingNotification) {
+                existingNotification.remove();
+            }
+
+            // 新しい通知を作成
+            const notification = document.createElement('div');
+            notification.className = 'alert alert-warning alert-dismissible fade show error-notification';
+            notification.style.cssText = `
+                position: fixed;
+                top: 80px;
+                right: 20px;
+                z-index: 1050;
+                min-width: 300px;
+                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            `;
+            notification.innerHTML = `
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+
+            document.body.appendChild(notification);
+
+            // 5秒後に自動削除
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.remove();
                 }
+            }, 5000);
+        }
+
+        async function initChart() {
+            const container = document.getElementById('mainRateChart');
+
+            // Lightweight Charts初期化
+            chart = LightweightCharts.createChart(container, {
+                autoSize: true,  // レスポンシブ対応
+                layout: {
+                    background: { color: '#0b0e11' },
+                    textColor: '#eaecef',
+                },
+                grid: {
+                    vertLines: { color: '#2b2f36' },
+                    horzLines: { color: '#2b2f36' },
+                },
+                crosshair: {
+                    mode: LightweightCharts.CrosshairMode.Normal,
+                },
+                rightPriceScale: {
+                    borderColor: '#2b2f36',
+                    textColor: '#848e9c',
+                },
+                timeScale: {
+                    borderColor: '#2b2f36',
+                    timeVisible: true,
+                    secondsVisible: false,
+                },
+                handleScroll: {
+                    mouseWheel: true,
+                    pressedMouseMove: true,
+                },
+                handleScale: {
+                    axisPressedMouseMove: true,
+                    mouseWheel: true,
+                    pinch: true,
+                },
+                conflationThresholdFactor: 2.0,  // パフォーマンス最適化
             });
+
+            // ラインチャート作成
+            lineSeries = chart.addLineSeries({
+                color: '#f0b90b',
+                lineWidth: 2,
+                priceFormat: {
+                    type: 'price',
+                    precision: 2,
+                    minMove: 0.01,
+                },
+                crosshairMarkerVisible: true,
+                priceLineVisible: true,
+                lastValueVisible: true,
+            });
+
+            // 初期データ設定
+            const initialData = await fetchInitialData();
+            lineSeries.setData(initialData);
+
+            // チャートサイズ調整
+            chart.timeScale().fitContent();
         }
 
         // リアルタイムで価格を更新
@@ -348,9 +404,13 @@
                     document.getElementById('current-rate-nav').innerText = priceStr + ' TKUP';
                     document.getElementById('stats-price').innerText = priceStr + ' TKUP';
 
-                    // 24h統計を計算
-                    if (chart.data.datasets[0].data.length > 0) {
-                        const rates = chart.data.datasets[0].data.map(d => d.y);
+                    // 統計計算用のレート履歴を維持
+                    rateHistory.push({ time: Math.floor(Date.now() / 1000), value: currentRate });
+                    if (rateHistory.length > 100) rateHistory.shift();
+
+                    // 統計計算
+                    if (rateHistory.length > 0) {
+                        const rates = rateHistory.map(d => d.value);
                         const high = Math.max(...rates);
                         const low = Math.min(...rates);
                         const first = rates[0];
@@ -362,14 +422,11 @@
                         document.getElementById('stats-change').className = `summary-value ${change >= 0 ? 'text-success' : 'text-danger'}`;
                     }
 
-                    // チャートデータ追加
-                    chart.data.datasets[0].data.push({ x: Date.now(), y: currentRate });
-                    if(chart.data.datasets[0].data.length > 100) chart.data.datasets[0].data.shift();
-                    chart.update('none');
-
-                    // スプレッド価格の色を変更
-                    const priceChange = currentRate - prevRate;
-                    document.getElementById('spread-price').className = `fw-bold h5 mb-0 ${priceChange >= 0 ? 'text-success' : 'text-danger'}`;
+                    // Lightweight Chartsに新規データを追加
+                    lineSeries.update({
+                        time: Math.floor(Date.now() / 1000),
+                        value: currentRate
+                    });
                 }
             } catch (error) {
                 console.error('Failed to update market data:', error);
@@ -393,11 +450,11 @@
                 const data = await response.json();
                 if (data.success) {
                     const newData = data.history.map(h => ({
-                        x: h.timestamp,
-                        y: h.rate
+                        time: Math.floor(h.timestamp / 1000),
+                        value: h.rate
                     }));
-                    chart.data.datasets[0].data = newData;
-                    chart.update();
+                    lineSeries.setData(newData);
+                    chart.timeScale().fitContent();
                 }
             } catch (error) {
                 console.error('Failed to update timeframe:', error);

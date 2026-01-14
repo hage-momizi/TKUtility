@@ -35,11 +35,8 @@ async function initializeBot(client) {
   // 地震情報リアルタイム監視開始
   startRealtimeMonitoring(client);
 
-  // MarketBot起動（全ギルド）
-  for (const [guildId, guild] of client.guilds.cache) {
-    startBot(guildId, client);
-    console.log(`🤖 MarketBot started for guild: ${guild.name} (${guildId})`);
-  }
+  // MarketBot自動起動は無効化（手動起動のみ）
+  console.log('🤖 MarketBot auto-start disabled (manual start only)');
 }
 
 /**
