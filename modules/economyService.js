@@ -319,15 +319,7 @@ async function updateTKUCRate() {
       console.log(`📈 上限接近調整: -${additionalPressure.toFixed(1)}%追加下降`);
     }
 
-    // レート更新間隔制御（同じ需要状態で何度も計算しない）
-    const lastRateUpdate = rateData.lastUpdate || 0;
-    const timeSinceLastUpdate = Date.now() - lastRateUpdate;
-    const minUpdateInterval = 30 * 1000; // 30秒以上間隔を空ける
-
-    if (timeSinceLastUpdate < minUpdateInterval) {
-      console.log(`⏰ レート更新スキップ: ${Math.round(timeSinceLastUpdate/1000)}秒前`);
-      return; // 更新をスキップ
-    }
+    // 常時更新のため間隔制御を削除
 
     // 下限保護強化（クッション化）
     if (currentRate <= lowerLimit * 1.1) { // 下限の110%以下
