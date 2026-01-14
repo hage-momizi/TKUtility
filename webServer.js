@@ -5,7 +5,14 @@ const multer = require('multer');
 const { ChannelType } = require('discord.js');
 const { loadJSON, saveJSON } = require('./modules/fileStorage');
 const { summarizeNews } = require('./modules/aiService');
-const { getTKUCRate, getOrderBook } = require('./modules/economyService');
+const {
+  getTKUCRate,
+  getUserBalance,
+  saveUserBalance,
+  buyTKUC,
+  recordTransaction
+} = require('./modules/economyService');
+const { resolveToken } = require('./modules/tokenService');
 const { FILES } = require('./config/constants');
 
 const newsConfigFile = path.join(__dirname, 'newsconfig.json');
@@ -33,7 +40,56 @@ function startWebServer(client) {
   app.use(express.json());
   app.use(express.static(path.join(__dirname, 'web')));
 
-  // APIエンドポイント
+  // ユーティリティ -------------------------------------------------------
+
+  const getUserDisplay = async (guild, userId) => {
+    try {
+      const member = await guild.members.fetch(userId);
+      return {
+        username: member.user.username,
+        globalName: member.user.globalName || member.user.username,
+        displayName: member.displayName
+      };
+    } catch {
+      return { username: userId, globalName: userId, displayName: userId };
+    }
+  };
+
+  const sendTradeNotification = async ({ guildId, userId, type, amount, tkupDiff, rate }) => {
+    try {
+      const botConfig = loadJSON(FILES.BOT_CHANNEL_CONFIG);
+      const guildConfig = botConfig[guildId];
+      if (!guildConfig || !guildConfig.botSpeakChannelId) return;
+
+      const guild = client.guilds.cache.get(guildId);
+      if (!guild) return;
+
+      const channel = await client.channels.fetch(guildConfig.botSpeakChannelId).catch(() => null);
+      if (!channel || !channel.isTextBased()) return;
+
+      const userInfo = await getUserDisplay(guild, userId);
+
+      const embed = {
+        title: type === 'buy' ? '🛒 TKUC購入通知' : '💱 TKUC売却通知',
+        color: type === 'buy' ? 0x10B981 : 0xEF4444,
+        fields: [
+          { name: 'ユーザー', value: `<@${userId}> (${userInfo.displayName})`, inline: true },
+          { name: '取引種別', value: type === 'buy' ? '購入 (Web)' : '売却 (Web)', inline: true },
+          { name: '数量', value: `${amount.toFixed(2)} TKUC`, inline: true },
+          { name: 'レート', value: `${rate} TKUP`, inline: true },
+          { name: 'TKUP変動', value: `${tkupDiff >= 0 ? '+' : ''}${tkupDiff.toFixed(2)} TKUP`, inline: true }
+        ],
+        timestamp: new Date().toISOString(),
+        footer: { text: 'TKUC Webパネル取引通知' }
+      };
+
+      await channel.send({ embeds: [embed] });
+    } catch (error) {
+      console.error('Failed to send trade notification:', error);
+    }
+  };
+
+  // 既存API --------------------------------------------------------------
   app.get('/api/guilds', (req, res) => {
     const guilds = client.guilds.cache.map(guild => ({
       id: guild.id,
@@ -69,9 +125,9 @@ function startWebServer(client) {
     res.json({ success: true });
   });
 
-  // CDNアップロードエンドポイント
+  // CDNアップロード
   const storage = multer.memoryStorage();
-  const upload = multer({ storage: storage });
+  const upload = multer({ storage });
 
   app.post('/api/upload', upload.single('file'), (req, res) => {
     try {
@@ -79,25 +135,23 @@ function startWebServer(client) {
       const fileName = req.file.originalname;
       const fileBuffer = req.file.buffer;
 
-      // アップロードディレクトリを作成
       const uploadDir = path.join(__dirname, 'uploads', uploadPath);
       if (!fs.existsSync(uploadDir)) {
         fs.mkdirSync(uploadDir, { recursive: true });
       }
 
-      // ファイルを保存
       const filePath = path.join(uploadDir, fileName);
       fs.writeFileSync(filePath, fileBuffer);
 
       console.log(`File uploaded: ${filePath}`);
-      res.json({ success: true, fileName: fileName, path: uploadPath });
+      res.json({ success: true, fileName, path: uploadPath });
     } catch (error) {
       console.error('Upload error:', error);
       res.status(500).json({ error: 'Upload failed' });
     }
   });
 
-  // AI要約エンドポイント (Perplexity)
+  // AI要約
   app.post('/api/summarize', async (req, res) => {
     try {
       const { content } = req.body;
@@ -111,7 +165,7 @@ function startWebServer(client) {
     }
   });
 
-  // TKUCレートチャートAPI
+  // TKUCレートAPI
   app.get('/api/current-rate', (req, res) => {
     try {
       const currentRate = getTKUCRate();
@@ -128,11 +182,9 @@ function startWebServer(client) {
 
   app.get('/api/rate-history', (req, res) => {
     try {
-      const points = parseInt(req.query.points) || 50;
+      const points = parseInt(req.query.points, 10) || 50;
       const rateData = loadJSON(FILES.TKUC_RATE);
       const history = rateData.history || [];
-
-      // 最新points件を取得
       const recentHistory = history.slice(-points);
 
       res.json({
@@ -146,7 +198,162 @@ function startWebServer(client) {
     }
   });
 
+  // トークンAPI ----------------------------------------------------------
+  app.post('/api/token-login', async (req, res) => {
+    try {
+      const { token } = req.body;
+      if (!token || typeof token !== 'string') {
+        return res.status(400).json({ success: false, error: 'トークンを指定してください。' });
+      }
 
+      const resolved = resolveToken(token);
+      if (!resolved) {
+        return res.status(401).json({ success: false, error: 'トークンが無効です。' });
+      }
+
+      const { guildId, userId, tokenData } = resolved;
+      const guild = client.guilds.cache.get(guildId);
+      if (!guild) {
+        return res.status(404).json({ success: false, error: 'ギルドが見つかりません。' });
+      }
+
+      const userInfo = await getUserDisplay(guild, userId);
+      const balance = getUserBalance(userId);
+      const rate = getTKUCRate();
+
+      res.json({
+        success: true,
+        guild: { id: guildId, name: guild.name },
+        user: { id: userId, ...userInfo },
+        tokenIssuedAt: tokenData.createdAt,
+        balance,
+        rate,
+        timestamp: Date.now()
+      });
+    } catch (error) {
+      console.error('token-login error:', error);
+      res.status(500).json({ success: false, error: 'ログイン処理に失敗しました。' });
+    }
+  });
+
+  app.get('/api/token-balance', (req, res) => {
+    try {
+      const token = req.query.token;
+      if (!token || typeof token !== 'string') {
+        return res.status(400).json({ success: false, error: 'トークンを指定してください。' });
+      }
+
+      const resolved = resolveToken(token);
+      if (!resolved) {
+        return res.status(401).json({ success: false, error: 'トークンが無効です。' });
+      }
+
+      const { userId } = resolved;
+      const balance = getUserBalance(userId);
+      const rate = getTKUCRate();
+
+      res.json({
+        success: true,
+        balance,
+        rate,
+        timestamp: Date.now()
+      });
+    } catch (error) {
+      console.error('token-balance error:', error);
+      res.status(500).json({ success: false, error: '残高取得に失敗しました。' });
+    }
+  });
+
+  app.post('/api/token-order', async (req, res) => {
+    try {
+      const { token, type, amount } = req.body;
+
+      if (!token || typeof token !== 'string') {
+        return res.status(400).json({ success: false, error: 'トークンを指定してください。' });
+      }
+      if (!['buy', 'sell'].includes(type)) {
+        return res.status(400).json({ success: false, error: '取引タイプが不正です。' });
+      }
+      const numericAmount = Number(amount);
+      if (!numericAmount || numericAmount <= 0) {
+        return res.status(400).json({ success: false, error: '数量が不正です。' });
+      }
+
+      const resolved = resolveToken(token);
+      if (!resolved) {
+        return res.status(401).json({ success: false, error: 'トークンが無効です。' });
+      }
+
+      const { guildId, userId } = resolved;
+      const guild = client.guilds.cache.get(guildId);
+      if (!guild) {
+        return res.status(404).json({ success: false, error: 'ギルドが見つかりません。' });
+      }
+
+      let responseMessage;
+      let tkupDiff = 0;
+      const roundedAmount = Math.round(numericAmount * 100) / 100;
+
+      if (type === 'buy') {
+        const result = buyTKUC(userId, roundedAmount);
+        if (!result.success) {
+          return res.status(400).json({ success: false, error: result.message });
+        }
+        responseMessage = result.message;
+        tkupDiff = -result.tkupSpent;
+      } else {
+        const balance = getUserBalance(userId);
+        const currentRate = getTKUCRate();
+
+        if (balance.tkuc < roundedAmount) {
+          return res.status(400).json({ success: false, error: 'TKUC残高が不足しています。' });
+        }
+
+        const gross = roundedAmount * currentRate;
+        const fee = Math.round(gross * 0.02 * 100) / 100;
+        const tkupReceived = Math.round((gross - fee) * 100) / 100;
+
+        balance.tkuc = Math.round((balance.tkuc - roundedAmount) * 100) / 100;
+        balance.tkup = Math.round((balance.tkup + tkupReceived) * 100) / 100;
+        saveUserBalance(userId, balance);
+
+        recordTransaction(userId, 'sell', {
+          tkucAmount: roundedAmount,
+          tkupReceived,
+          fee,
+          rate: currentRate
+        });
+
+        responseMessage = `${roundedAmount} TKUCを売却しました。（受取 ${tkupReceived} TKUP, 手数料 ${fee} TKUP）`;
+        tkupDiff = tkupReceived;
+      }
+
+      const updatedBalance = getUserBalance(userId);
+      const rate = getTKUCRate();
+
+      sendTradeNotification({
+        guildId,
+        userId,
+        type,
+        amount: roundedAmount,
+        tkupDiff,
+        rate
+      });
+
+      res.json({
+        success: true,
+        message: responseMessage,
+        balance: updatedBalance,
+        rate,
+        timestamp: Date.now()
+      });
+    } catch (error) {
+      console.error('token-order error:', error);
+      res.status(500).json({ success: false, error: '取引処理に失敗しました。' });
+    }
+  });
+
+  // サーバー起動 ---------------------------------------------------------
   app.listen(PORT, () => {
     console.log(`Web panel running at http://localhost:${PORT}`);
   });

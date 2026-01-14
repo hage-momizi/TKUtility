@@ -462,12 +462,19 @@ function getRecentRateChanges(count = 5) {
  * @param {number} tkucAmount - 購入TKUC量
  * @returns {object} 結果 {success, message, tkupSpent, tkucReceived}
  */
-function buyTKUC(userId, tkucAmount) {
+function buyTKUC(userId, tkucAmount, options = {}) {
   const balance = getUserBalance(userId);
   const rate = getTKUCRate();
 
+  if (tkucAmount <= 0 || Number.isNaN(tkucAmount)) {
+    return { success: false, message: '購入数量が不正です。' };
+  }
+
+  const roundedAmount = Math.round(tkucAmount * 100) / 100;
+  tkucAmount = roundedAmount;
+
   // 手数料込みの必要TKUP
-  const tkupNeeded = tkucAmount * rate * 1.03; // 3%手数料に変更
+  const tkupNeeded = Math.round(tkucAmount * rate * 1.03 * 100) / 100; // 3%手数料、小数点2桁
 
   // BOTの場合は無限資金（残高チェックスキップ）
   const isBot = userId === 'market_bot';
@@ -476,8 +483,8 @@ function buyTKUC(userId, tkucAmount) {
   }
 
   // 取引実行
-  balance.tkup -= tkupNeeded;
-  balance.tkuc += tkucAmount;
+  balance.tkup = Math.round((balance.tkup - tkupNeeded) * 100) / 100;
+  balance.tkuc = Math.round((balance.tkuc + tkucAmount) * 100) / 100;
 
   saveUserBalance(userId, balance);
   recordTransaction(userId, 'buy', { tkucAmount, tkupSpent: tkupNeeded, rate });

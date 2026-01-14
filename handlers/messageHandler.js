@@ -60,7 +60,8 @@ const commandHandlers = {
   'tk-itemhelp': () => require('../commands/tk-itemhelp'),
   'tk-sell': () => require('../commands/tk-sell'),
   'tk-bot-channel-set': () => require('../commands/tk-bot-channel-set'),
-  'tk-bot-run': () => require('../commands/tk-bot-run')
+  'tk-bot-run': () => require('../commands/tk-bot-run'),
+  'tk-token': () => require('../commands/tk-token')
 };
 
 /**

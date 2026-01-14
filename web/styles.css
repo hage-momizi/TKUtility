@@ -6,6 +6,69 @@ body {
     padding: 0;
 }
 
+.token-console {
+    background: radial-gradient(circle at top, rgba(88,101,242,0.15), transparent 55%),
+                radial-gradient(circle at bottom, rgba(32,34,37,0.6), #18191c 70%);
+    min-height: 100vh;
+}
+
+.glass-card {
+    background: rgba(47,49,54,0.9);
+    border: 1px solid rgba(88, 101, 242, 0.2);
+    border-radius: 16px;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.35);
+    backdrop-filter: blur(14px);
+}
+
+.balance-display {
+    font-size: 1.1rem;
+    line-height: 1.8;
+}
+
+.balance-line strong {
+    color: #57f287;
+}
+
+.trade-log {
+    max-height: 360px;
+    overflow-y: auto;
+}
+
+.trade-log-entry {
+    padding: 12px;
+    border-bottom: 1px solid rgba(88, 101, 242, 0.2);
+}
+
+.trade-log-title {
+    font-weight: 600;
+    color: #57f287;
+}
+
+.trade-log-body {
+    color: #b9bbbe;
+}
+
+.trade-log-time {
+    color: #72767d;
+    font-size: 12px;
+    margin-top: 4px;
+}
+
+.btn-info {
+    background-color: #00aff4;
+    border-color: #00aff4;
+}
+
+.btn-info:hover {
+    background-color: #0097d6;
+    border-color: #0097d6;
+}
+
+input:disabled,
+select:disabled {
+    opacity: 0.6;
+}
+
 .sidebar {
     background-color: #2f3136;
     min-height: 100vh;

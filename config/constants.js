@@ -14,6 +14,7 @@ const FILES = {
   ORDER_BOOK: path.join(__dirname, '../orderBook.json'),
   AI_CONFIG: path.join(__dirname, '../aiConfig.json'),
   BOT_CHANNEL_CONFIG: path.join(__dirname, '../botChannelConfig.json'),
+  PRIVATE_TOKENS: path.join(__dirname, '../privateTokens.json'),
 };
 
 // AIレートリミット管理: userId -> [timestamp1, timestamp2, ...]
