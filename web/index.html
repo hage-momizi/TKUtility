@@ -3,379 +3,440 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TKUC Market Terminal - Real-time Rate Chart</title>
+    <title>TKUC Exchange Terminal</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Roboto+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 
     <style>
         :root {
-            --bg-dark: #0a1520;
-            --bg-darker: #05090f;
-            --card-bg: #0e1a28;
-            --card-hover: #132230;
-            --primary-color: #00d4ff;
-            --primary-glow: rgba(0, 212, 255, 0.3);
-            --secondary-color: #00a8cc;
-            --accent-color: #39e0ff;
-            --text-main: #e0f4ff;
-            --text-muted: #6b8fa3;
-            --up-color: #00ffc8;
-            --down-color: #ff4d7d;
-            --border-color: #1a3a4d;
-            --border-glow: #0d7a9e;
+            --bg-primary: #0b0e11;
+            --bg-secondary: #161a1e;
+            --bg-tertiary: #1e2329;
+            --border-color: #2b3139;
+            --text-primary: #eaecef;
+            --text-secondary: #848e9c;
+            --text-tertiary: #5e6673;
+            --green: #0ecb81;
+            --red: #f6465d;
+            --yellow: #fcd535;
+            --blue: #3861fb;
+            --purple: #b185ff;
         }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
-            background: linear-gradient(135deg, var(--bg-darker) 0%, var(--bg-dark) 100%);
-            color: var(--text-main);
+            background: var(--bg-primary);
+            color: var(--text-primary);
             font-family: 'Inter', sans-serif;
-            margin: 0;
-            min-height: 100vh;
+            font-size: 14px;
+            overflow-x: hidden;
         }
 
-        .navbar {
-            background: linear-gradient(135deg, #0e1a28 0%, #132835 100%);
-            border-bottom: 2px solid var(--border-glow);
-            padding: 0.75rem 1.5rem;
-            box-shadow: 0 4px 20px rgba(0, 212, 255, 0.15);
-        }
-
-        .navbar-brand {
-            font-weight: 700;
-            color: var(--primary-color) !important;
-            letter-spacing: -0.5px;
-            text-shadow: 0 0 20px var(--primary-glow);
-            transition: all 0.3s ease;
-        }
-
-        .navbar-brand:hover {
-            text-shadow: 0 0 30px var(--primary-color);
-        }
-
-        .price-ticker {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 1.1rem;
-            font-weight: 600;
-            color: var(--accent-color);
-        }
-
-        .main-container {
-            padding: 20px;
-            max-width: 1600px;
-            margin: 0 auto;
-        }
-
-        .glass-card {
-            background: linear-gradient(135deg, rgba(14, 26, 40, 0.9) 0%, rgba(19, 34, 48, 0.8) 100%);
-            border: 1px solid var(--border-color);
-            border-radius: 16px;
-            overflow: hidden;
-            height: 100%;
-            backdrop-filter: blur(10px);
-            box-shadow: 0 8px 32px rgba(0, 122, 158, 0.15);
-            transition: all 0.3s ease;
-        }
-
-        .glass-card:hover {
-            border-color: var(--border-glow);
-            box-shadow: 0 12px 40px rgba(0, 212, 255, 0.25);
-            transform: translateY(-2px);
-        }
-
-        .card-header-custom {
-            padding: 15px 20px;
+        /* Header */
+        .exchange-header {
+            background: var(--bg-secondary);
             border-bottom: 1px solid var(--border-color);
-            background: linear-gradient(90deg, rgba(0, 122, 158, 0.1) 0%, rgba(0, 168, 204, 0.05) 100%);
+            padding: 12px 20px;
             display: flex;
-            justify-content: space-between;
             align-items: center;
+            justify-content: space-between;
         }
 
-        .market-summary {
+        .logo {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--yellow);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .market-ticker {
+            display: flex;
+            align-items: center;
+            gap: 30px;
+        }
+
+        .ticker-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .ticker-label {
+            font-size: 11px;
+            color: var(--text-tertiary);
+            margin-bottom: 2px;
+        }
+
+        .ticker-value {
+            font-family: 'Roboto Mono', monospace;
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .ticker-value.positive { color: var(--green); }
+        .ticker-value.negative { color: var(--red); }
+
+        /* Main Layout */
+        .trading-layout {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            margin-bottom: 20px;
+            grid-template-columns: 280px 1fr 320px;
+            grid-template-rows: auto 1fr;
+            height: calc(100vh - 57px);
+            gap: 1px;
+            background: var(--border-color);
         }
 
-        .summary-item {
-            background: linear-gradient(135deg, rgba(14, 26, 40, 0.95) 0%, rgba(19, 50, 70, 0.85) 100%);
-            padding: 15px 20px;
-            border-radius: 12px;
-            border: 1px solid var(--border-color);
-            position: relative;
+        .panel {
+            background: var(--bg-secondary);
             overflow: hidden;
-            transition: all 0.3s ease;
         }
 
-        .summary-item::before {
+        /* Left Panel - Order Book */
+        .orderbook-panel {
+            grid-row: 1 / 3;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .panel-header {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .orderbook-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px 0;
+        }
+
+        .orderbook-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            padding: 3px 16px;
+            font-family: 'Roboto Mono', monospace;
+            font-size: 12px;
+            position: relative;
+        }
+
+        .orderbook-row.ask { color: var(--red); }
+        .orderbook-row.bid { color: var(--green); }
+
+        .orderbook-row::before {
             content: '';
             position: absolute;
+            right: 0;
             top: 0;
-            left: 0;
-            width: 100%;
-            height: 2px;
-            background: linear-gradient(90deg, var(--primary-color) 0%, var(--accent-color) 100%);
-            opacity: 0;
-            transition: opacity 0.3s ease;
+            bottom: 0;
+            background: currentColor;
+            opacity: 0.05;
         }
 
-        .summary-item:hover::before {
-            opacity: 1;
+        /* Center Panel - Chart */
+        .chart-panel {
+            grid-column: 2;
+            grid-row: 1 / 3;
+            display: flex;
+            flex-direction: column;
         }
 
-        .summary-item:hover {
-            border-color: var(--border-glow);
-            box-shadow: 0 6px 24px rgba(0, 212, 255, 0.2);
-            transform: translateY(-3px);
+        .chart-controls {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            flex-wrap: wrap;
         }
 
-        .summary-label {
-            color: var(--text-muted);
-            font-size: 0.85rem;
-            margin-bottom: 5px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
 
-        .summary-value {
-            font-size: 1.25rem;
+        .control-btn {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            padding: 5px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .control-btn:hover {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+        }
+
+        .control-btn.active {
+            background: var(--yellow);
+            color: var(--bg-primary);
+            border-color: var(--yellow);
             font-weight: 600;
-            font-family: 'JetBrains Mono', monospace;
-            color: var(--accent-color);
-            text-shadow: 0 0 10px rgba(57, 224, 255, 0.3);
         }
 
-        .chart-wrapper {
-            padding: 20px;
-            height: 600px;
+        .indicator-btn {
+            background: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .indicator-btn.active {
+            border-color: var(--blue);
+            color: var(--blue);
+            background: rgba(56, 97, 251, 0.1);
+        }
+
+        .chart-container {
+            flex: 1;
+            position: relative;
+            background: var(--bg-primary);
+        }
+
+        #mainChart, #rsiChart, #macdChart {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Right Panel - Trades & Stats */
+        .trades-panel {
+            grid-column: 3;
+            grid-row: 1 / 3;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            padding: 16px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .stat-label {
+            font-size: 11px;
+            color: var(--text-tertiary);
+        }
+
+        .stat-value {
+            font-family: 'Roboto Mono', monospace;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .recent-trades {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .trade-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            padding: 6px 16px;
+            font-family: 'Roboto Mono', monospace;
+            font-size: 12px;
+            border-bottom: 1px solid rgba(43, 49, 57, 0.3);
+        }
+
+        .trade-row:hover {
+            background: var(--bg-tertiary);
+        }
+
+        .trade-price.buy { color: var(--green); }
+        .trade-price.sell { color: var(--red); }
+
+        /* Indicator Panel */
+        .indicator-panel {
+            height: 150px;
+            border-top: 1px solid var(--border-color);
             position: relative;
         }
 
-        .btn-group-time, .btn-group-chart {
-            background: rgba(13, 122, 158, 0.15);
-            padding: 4px;
-            border-radius: 8px;
-            margin-right: 10px;
-            border: 1px solid var(--border-color);
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: var(--bg-primary); }
+        ::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text-tertiary); }
+
+        /* Responsive */
+        @media (max-width: 1400px) {
+            .trading-layout {
+                grid-template-columns: 250px 1fr 280px;
+            }
         }
 
-        .btn-time, .btn-chart-type {
-            background: transparent;
-            border: none;
-            color: var(--text-muted);
-            padding: 6px 14px;
-            font-size: 0.8rem;
-            border-radius: 6px;
-            transition: all 0.3s ease;
-            cursor: pointer;
+        @media (max-width: 1024px) {
+            .trading-layout {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto auto auto;
+            }
+            .orderbook-panel, .trades-panel {
+                grid-row: auto;
+                height: 300px;
+            }
         }
 
-        .btn-time:hover, .btn-chart-type:hover {
-            color: var(--accent-color);
-            background: rgba(0, 212, 255, 0.1);
-        }
-
-        .btn-time.active, .btn-chart-type.active {
-            background: linear-gradient(135deg, var(--secondary-color) 0%, var(--primary-color) 100%);
-            color: #ffffff;
-            box-shadow: 0 4px 15px rgba(0, 212, 255, 0.4);
-        }
-
-        .badge-live {
-            background: linear-gradient(135deg, rgba(0, 255, 200, 0.2) 0%, rgba(0, 212, 255, 0.2) 100%);
-            color: var(--up-color);
-            border: 1px solid var(--up-color);
-            font-size: 0.7rem;
-            padding: 5px 10px;
-            border-radius: 20px;
-            box-shadow: 0 0 15px rgba(0, 255, 200, 0.3);
-        }
-
-        .indicator-label {
+        .signal-badge {
             display: inline-block;
-            padding: 3px 10px;
-            border-radius: 6px;
-            font-size: 0.75rem;
-            margin-right: 8px;
-            border: 1px solid;
-            font-weight: 600;
-            transition: all 0.3s ease;
-        }
-
-        .indicator-label:hover {
-            transform: scale(1.05);
-            box-shadow: 0 4px 12px rgba(0, 212, 255, 0.3);
-        }
-
-        .ma7-label {
-            color: #00d4ff;
-            border-color: #00d4ff;
-            background: rgba(0, 212, 255, 0.1);
-        }
-
-        .ma25-label {
-            color: #ff9500;
-            border-color: #ff9500;
-            background: rgba(255, 149, 0, 0.1);
-        }
-
-        .news-badge {
-            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
-            color: #ffffff;
-            padding: 5px 12px;
-            border-radius: 8px;
-            font-weight: 600;
-            box-shadow: 0 4px 15px rgba(0, 212, 255, 0.3);
-        }
-
-        .news-item {
-            transition: all 0.3s ease;
-            padding: 15px;
-            border-radius: 8px;
-        }
-
-        .news-item:hover {
-            background: rgba(0, 212, 255, 0.05);
-        }
-
-        ::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
-        }
-
-        ::-webkit-scrollbar-track {
-            background: var(--bg-dark);
-        }
-
-        ::-webkit-scrollbar-thumb {
-            background: linear-gradient(180deg, var(--secondary-color) 0%, var(--primary-color) 100%);
+            padding: 2px 8px;
             border-radius: 4px;
+            font-size: 10px;
+            font-weight: 600;
+            margin-left: 8px;
         }
 
-        ::-webkit-scrollbar-thumb:hover {
-            background: var(--primary-color);
+        .signal-badge.bullish {
+            background: rgba(14, 203, 129, 0.2);
+            color: var(--green);
         }
 
-        @keyframes glow {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.6; }
+        .signal-badge.bearish {
+            background: rgba(246, 70, 93, 0.2);
+            color: var(--red);
         }
 
-        .fa-bolt-lightning {
-            animation: glow 2s ease-in-out infinite;
-            color: var(--accent-color);
+        .signal-badge.neutral {
+            background: rgba(132, 142, 156, 0.2);
+            color: var(--text-secondary);
         }
     </style>
 </head>
 <body>
 
-    <nav class="navbar navbar-expand-lg">
-        <div class="container-fluid">
-            <a class="navbar-brand" href="#">
-                <i class="fa-solid fa-bolt-lightning me-2"></i>TKUC MARKET TERMINAL
-            </a>
-            <div class="ms-auto d-flex align-items-center">
-                <div class="price-ticker me-3" id="nav-price">
-                    <span class="text-muted">TKUC/TKUP</span>
-                    <span id="current-rate-nav" class="ms-2">--.--</span>
-                </div>
-                <span class="badge badge-live"><i class="fa-solid fa-circle fa-beat-fade me-1"></i> 2秒自動更新</span>
+    <!-- Header -->
+    <div class="exchange-header">
+        <div class="logo">
+            <i class="fa-solid fa-chart-line"></i>
+            TKUC EXCHANGE
+        </div>
+        <div class="market-ticker">
+            <div class="ticker-item">
+                <div class="ticker-label">TKUC/TKUP</div>
+                <div class="ticker-value" id="header-price">--.--</div>
+            </div>
+            <div class="ticker-item">
+                <div class="ticker-label">24h変動</div>
+                <div class="ticker-value" id="header-change">+0.00%</div>
+            </div>
+            <div class="ticker-item">
+                <div class="ticker-label">24h高値</div>
+                <div class="ticker-value" id="header-high">--.--</div>
+            </div>
+            <div class="ticker-item">
+                <div class="ticker-label">24h安値</div>
+                <div class="ticker-value" id="header-low">--.--</div>
+            </div>
+            <div class="ticker-item">
+                <div class="ticker-label">24h出来高</div>
+                <div class="ticker-value" id="header-volume">--.--</div>
             </div>
         </div>
-    </nav>
+    </div>
 
-    <div class="main-container">
-        <div class="market-summary">
-            <div class="summary-item">
-                <div class="summary-label">現在の価格</div>
-                <div class="summary-value" id="stats-price">0 TKUP</div>
+    <!-- Main Trading Layout -->
+    <div class="trading-layout">
+        <!-- Left: Order Book -->
+        <div class="panel orderbook-panel">
+            <div class="panel-header">オーダーブック</div>
+            <div style="padding: 8px 16px; display: grid; grid-template-columns: 1fr 1fr 1fr; font-size: 11px; color: var(--text-tertiary);">
+                <span>価格(TKUP)</span>
+                <span style="text-align: right;">数量(TKUC)</span>
+                <span style="text-align: right;">合計</span>
             </div>
-            <div class="summary-item">
-                <div class="summary-label">変動率</div>
-                <div class="summary-value" id="stats-change">+0.00%</div>
+            <div class="orderbook-content" id="orderbook"></div>
+        </div>
+
+        <!-- Center: Chart -->
+        <div class="panel chart-panel">
+            <div class="chart-controls">
+                <div class="control-group">
+                    <button class="control-btn" onclick="switchChartType('candlestick', this)">
+                        <i class="fa-solid fa-chart-candlestick"></i>
+                    </button>
+                    <button class="control-btn active" onclick="switchChartType('line', this)">
+                        <i class="fa-solid fa-chart-line"></i>
+                    </button>
+                    <button class="control-btn" onclick="switchChartType('area', this)">
+                        <i class="fa-solid fa-chart-area"></i>
+                    </button>
+                </div>
+
+                <div class="control-group">
+                    <button class="control-btn active" onclick="updateTimeframe(50, this)">1分</button>
+                    <button class="control-btn" onclick="updateTimeframe(100, this)">5分</button>
+                    <button class="control-btn" onclick="updateTimeframe(200, this)">15分</button>
+                    <button class="control-btn" onclick="updateTimeframe(500, this)">1時間</button>
+                </div>
+
+                <div class="control-group">
+                    <span style="font-size: 11px; color: var(--text-tertiary); margin-right: 4px;">インジケーター:</span>
+                    <button class="indicator-btn active" onclick="toggleIndicator('rsi', this)">RSI</button>
+                    <button class="indicator-btn active" onclick="toggleIndicator('macd', this)">MACD</button>
+                    <button class="indicator-btn" onclick="toggleIndicator('bb', this)">BB</button>
+                </div>
+
+                <div style="margin-left: auto; display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 11px; color: var(--text-tertiary);">シグナル:</span>
+                    <span class="signal-badge neutral" id="signal-indicator">中立</span>
+                </div>
             </div>
-            <div class="summary-item">
-                <div class="summary-label">最高値</div>
-                <div class="summary-value" id="stats-high">0 TKUP</div>
-            </div>
-            <div class="summary-item">
-                <div class="summary-label">最安値</div>
-                <div class="summary-value" id="stats-low">0 TKUP</div>
-            </div>
-            <div class="summary-item">
-                <div class="summary-label">取引量（24h）</div>
-                <div class="summary-value" id="stats-volume">0</div>
+
+            <div class="chart-container">
+                <div id="mainChart" style="height: calc(100% - 300px);"></div>
+                <div id="rsiChart" class="indicator-panel" style="display: block;"></div>
+                <div id="macdChart" class="indicator-panel" style="display: block;"></div>
             </div>
         </div>
 
-        <div class="row g-4">
-            <div class="col-12">
-                <div class="glass-card">
-                    <div class="card-header-custom">
-                        <div class="d-flex align-items-center flex-wrap">
-                            <h6 class="mb-0 me-3" style="color: var(--accent-color); font-weight: 600;">価格推移チャート</h6>
-
-                            <div class="btn-group-chart">
-                                <button class="btn-chart-type" data-type="candlestick" onclick="switchChartType('candlestick', this)">
-                                    <i class="fa-solid fa-chart-candlestick"></i>
-                                </button>
-                                <button class="btn-chart-type active" data-type="line" onclick="switchChartType('line', this)">
-                                    <i class="fa-solid fa-chart-line"></i>
-                                </button>
-                                <button class="btn-chart-type" data-type="area" onclick="switchChartType('area', this)">
-                                    <i class="fa-solid fa-chart-area"></i>
-                                </button>
-                            </div>
-
-                            <div class="btn-group-time">
-                                <button class="btn-time active" data-timeframe="10" onclick="updateTimeframe(10, this)">10件</button>
-                                <button class="btn-time" data-timeframe="30" onclick="updateTimeframe(30, this)">30件</button>
-                                <button class="btn-time" data-timeframe="50" onclick="updateTimeframe(50, this)">50件</button>
-                                <button class="btn-time" data-timeframe="100" onclick="updateTimeframe(100, this)">100件</button>
-                            </div>
-
-                            <div class="ms-2">
-                                <span class="indicator-label ma7-label">MA7</span>
-                                <span class="indicator-label ma25-label">MA25</span>
-                            </div>
-                        </div>
-                        <i class="fa-solid fa-chart-line" style="color: var(--primary-color);"></i>
-                    </div>
-                    <div class="chart-wrapper">
-                        <div id="mainRateChart" style="width: 100%; height: 100%;"></div>
-                    </div>
+        <!-- Right: Stats & Recent Trades -->
+        <div class="panel trades-panel">
+            <div class="panel-header">市場統計</div>
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-label">現在価格</div>
+                    <div class="stat-value" id="stat-price">--.--</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">変動率</div>
+                    <div class="stat-value" id="stat-change">+0.00%</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">RSI(14)</div>
+                    <div class="stat-value" id="stat-rsi" style="color: var(--yellow);">--</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">MACD</div>
+                    <div class="stat-value" id="stat-macd" style="color: var(--purple);">--</div>
                 </div>
             </div>
-        </div>
 
-        <div class="row mt-4">
-            <div class="col-12">
-                <div class="glass-card">
-                    <div class="card-header-custom">
-                        <h6 class="mb-0" style="color: var(--accent-color); font-weight: 600;">
-                            <i class="fa-solid fa-bullhorn me-2" style="color: var(--primary-color);"></i>システム通知 & 市場ニュース
-                        </h6>
-                    </div>
-                    <div class="p-3">
-                        <div class="news-item d-flex align-items-start mb-3 border-bottom pb-3" style="border-color: var(--border-color) !important;">
-                            <span class="news-badge me-3">重要</span>
-                            <div>
-                                <div class="fw-bold mb-1" style="color: var(--accent-color);">TKUC ネットワークのアップデート完了</div>
-                                <div class="text-muted small">システムの安定性が向上し、取引処理速度が20%改善されました。</div>
-                            </div>
-                        </div>
-                        <div class="news-item d-flex align-items-start">
-                            <span class="badge bg-secondary me-3">情報</span>
-                            <div>
-                                <div class="fw-bold mb-1" style="color: var(--accent-color);">次回のコミュニティドロップについて</div>
-                                <div class="text-muted small">来月の第2週にホルダー向けの報酬配布を予定しています。</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+            <div class="panel-header" style="border-top: 1px solid var(--border-color);">最近の取引</div>
+            <div style="padding: 8px 16px; display: grid; grid-template-columns: 1fr 1fr 1fr; font-size: 11px; color: var(--text-tertiary); border-bottom: 1px solid var(--border-color);">
+                <span>価格</span>
+                <span style="text-align: right;">数量</span>
+                <span style="text-align: right;">時刻</span>
             </div>
+            <div class="recent-trades" id="recent-trades"></div>
         </div>
     </div>
 
@@ -383,25 +444,95 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.0/dist/lightweight-charts.standalone.production.js"></script>
 
     <script>
-        let currentRate = 100;
-        let chart;
-        let mainSeries;
-        let volumeSeries;
-        let ma7Series;
-        let ma25Series;
+        let currentRate = 500;
+        let mainChart, rsiChart, macdChart;
+        let mainSeries, volumeSeries, rsiSeries, macdLineSeries, macdSignalSeries, macdHistSeries;
+        let bbUpperSeries, bbLowerSeries;
         let rateHistory = [];
         let candlestickData = [];
         let volumeData = [];
         let currentChartType = 'line';
+        let activeIndicators = { rsi: true, macd: true, bb: false };
+
+        // RSI計算
+        function calculateRSI(data, period = 14) {
+            const rsi = [];
+            for (let i = period; i < data.length; i++) {
+                let gains = 0, losses = 0;
+                for (let j = i - period; j < i; j++) {
+                    const change = data[j + 1].value - data[j].value;
+                    if (change > 0) gains += change;
+                    else losses += Math.abs(change);
+                }
+                const avgGain = gains / period;
+                const avgLoss = losses / period;
+                const rs = avgGain / (avgLoss || 1);
+                const rsiValue = 100 - (100 / (1 + rs));
+                rsi.push({ time: data[i].time, value: rsiValue });
+            }
+            return rsi;
+        }
+
+        // MACD計算
+        function calculateEMA(data, period) {
+            const k = 2 / (period + 1);
+            const ema = [{ time: data[0].time, value: data[0].value }];
+            for (let i = 1; i < data.length; i++) {
+                const value = data[i].value * k + ema[i - 1].value * (1 - k);
+                ema.push({ time: data[i].time, value });
+            }
+            return ema;
+        }
+
+        function calculateMACD(data) {
+            const ema12 = calculateEMA(data, 12);
+            const ema26 = calculateEMA(data, 26);
+            const macdLine = ema12.map((e, i) => ({ time: e.time, value: e.value - ema26[i].value }));
+            const signalLine = calculateEMA(macdLine, 9);
+            const histogram = macdLine.map((m, i) => ({
+                time: m.time,
+                value: i < signalLine.length ? m.value - signalLine[i].value : 0,
+                color: m.value >= (signalLine[i]?.value || 0) ? 'rgba(14, 203, 129, 0.5)' : 'rgba(246, 70, 93, 0.5)'
+            }));
+            return { macdLine, signalLine, histogram };
+        }
+
+        // ボリンジャーバンド計算
+        function calculateBB(data, period = 20, stdDev = 2) {
+            const bb = { upper: [], lower: [], middle: [] };
+            for (let i = period - 1; i < data.length; i++) {
+                const slice = data.slice(i - period + 1, i + 1);
+                const mean = slice.reduce((sum, d) => sum + d.value, 0) / period;
+                const variance = slice.reduce((sum, d) => sum + Math.pow(d.value - mean, 2), 0) / period;
+                const std = Math.sqrt(variance);
+                bb.middle.push({ time: data[i].time, value: mean });
+                bb.upper.push({ time: data[i].time, value: mean + stdDev * std });
+                bb.lower.push({ time: data[i].time, value: mean - stdDev * std });
+            }
+            return bb;
+        }
+
+        // シグナル判定
+        function determineSignal(rsi, macd) {
+            let signal = 'neutral';
+            if (rsi < 30 && macd > 0) signal = 'bullish';
+            else if (rsi > 70 && macd < 0) signal = 'bearish';
+            else if (rsi < 40) signal = 'bullish';
+            else if (rsi > 60) signal = 'bearish';
+
+            const badge = document.getElementById('signal-indicator');
+            badge.className = 'signal-badge ' + signal;
+            badge.textContent = signal === 'bullish' ? '買い' : signal === 'bearish' ? '売り' : '中立';
+        }
 
         async function fetchInitialData() {
             try {
-                const response = await fetch('/api/rate-history?points=50');
+                const response = await fetch('/api/rate-history?points=100');
                 const data = await response.json();
                 if (data.success) {
                     currentRate = data.currentRate;
                     candlestickData = data.history.map(h => {
-                        const variance = h.rate * 0.02;
+                        const variance = h.rate * 0.015;
                         return {
                             time: Math.floor(h.timestamp / 1000),
                             open: h.rate - variance * Math.random(),
@@ -410,18 +541,15 @@
                             close: h.rate
                         };
                     });
-
                     rateHistory = candlestickData.map(c => ({ time: c.time, value: c.close }));
                     volumeData = data.history.map(h => ({
                         time: Math.floor(h.timestamp / 1000),
                         value: Math.random() * 1000 + 500,
-                        color: Math.random() > 0.5 ? 'rgba(0, 255, 200, 0.5)' : 'rgba(255, 77, 125, 0.5)'
+                        color: Math.random() > 0.5 ? 'rgba(14, 203, 129, 0.3)' : 'rgba(246, 70, 93, 0.3)'
                     }));
                     return { candlestickData, rateHistory, volumeData };
                 }
             } catch (error) {
-                console.error('Failed to fetch initial data:', error);
-                showErrorNotification('データ取得に失敗しました。フォールバックデータを表示します。');
                 return generateFallbackData();
             }
         }
@@ -433,11 +561,10 @@
             rateHistory = [];
             volumeData = [];
 
-            for (let i = 49; i >= 0; i--) {
+            for (let i = 99; i >= 0; i--) {
                 const time = now - (i * 60);
-                const close = basePrice + (Math.random() - 0.5) * 20;
-                const variance = close * 0.02;
-
+                const close = basePrice + (Math.random() - 0.5) * 40;
+                const variance = close * 0.015;
                 candlestickData.push({
                     time, open: close - variance * Math.random(),
                     high: close + variance * Math.random(),
@@ -446,111 +573,204 @@
                 rateHistory.push({ time, value: close });
                 volumeData.push({
                     time, value: Math.random() * 1000 + 500,
-                    color: Math.random() > 0.5 ? 'rgba(0, 255, 200, 0.5)' : 'rgba(255, 77, 125, 0.5)'
+                    color: Math.random() > 0.5 ? 'rgba(14, 203, 129, 0.3)' : 'rgba(246, 70, 93, 0.3)'
                 });
             }
             currentRate = candlestickData[candlestickData.length - 1].close;
             return { candlestickData, rateHistory, volumeData };
         }
 
-        function calculateMA(data, period) {
-            const result = [];
-            for (let i = 0; i < data.length; i++) {
-                if (i < period - 1) continue;
-                let sum = 0;
-                for (let j = 0; j < period; j++) {
-                    sum += data[i - j].value;
-                }
-                result.push({ time: data[i].time, value: sum / period });
-            }
-            return result;
-        }
+        async function initCharts() {
+            const data = await fetchInitialData();
 
-        function showErrorNotification(message) {
-            const existingNotification = document.querySelector('.error-notification');
-            if (existingNotification) existingNotification.remove();
-            const notification = document.createElement('div');
-            notification.className = 'alert alert-warning alert-dismissible fade show error-notification';
-            notification.style.cssText = 'position: fixed; top: 80px; right: 20px; z-index: 1050; min-width: 300px; box-shadow: 0 4px 20px rgba(0, 212, 255, 0.3); background: linear-gradient(135deg, #0e1a28 0%, #132835 100%); border: 1px solid var(--border-glow); color: var(--text-main);';
-            notification.innerHTML = '<i class="fas fa-exclamation-triangle me-2"></i>' + message + '<button type="button" class="btn-close" data-bs-dismiss="alert" style="filter: brightness(2);"></button>';
-            document.body.appendChild(notification);
-            setTimeout(() => { if (notification.parentNode) notification.remove(); }, 5000);
-        }
-
-        async function initChart() {
-            const container = document.getElementById('mainRateChart');
-            chart = LightweightCharts.createChart(container, {
-                autoSize: true,
-                layout: { background: { color: '#0a1520' }, textColor: '#6b8fa3' },
-                grid: { vertLines: { color: '#1a3a4d' }, horzLines: { color: '#1a3a4d' } },
+            // Main Chart
+            const mainContainer = document.getElementById('mainChart');
+            mainChart = LightweightCharts.createChart(mainContainer, {
+                layout: { background: { color: '#0b0e11' }, textColor: '#848e9c' },
+                grid: { vertLines: { color: '#2b3139' }, horzLines: { color: '#2b3139' } },
                 crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
-                rightPriceScale: { borderColor: '#1a3a4d', textColor: '#6b8fa3' },
-                timeScale: { borderColor: '#1a3a4d', timeVisible: true, secondsVisible: false },
-                handleScroll: { mouseWheel: true, pressedMouseMove: true },
-                handleScale: { axisPressedMouseMove: true, mouseWheel: true, pinch: true }
+                rightPriceScale: { borderColor: '#2b3139' },
+                timeScale: { borderColor: '#2b3139', timeVisible: true, secondsVisible: false },
+                width: mainContainer.clientWidth,
+                height: mainContainer.clientHeight
             });
 
-            const data = await fetchInitialData();
-            mainSeries = chart.addLineSeries({
-                color: '#00d4ff', lineWidth: 2,
-                priceFormat: { type: 'price', precision: 2, minMove: 0.01 },
-                crosshairMarkerVisible: true, priceLineVisible: true, lastValueVisible: true
+            mainSeries = mainChart.addLineSeries({
+                color: '#fcd535', lineWidth: 2,
+                priceFormat: { type: 'price', precision: 2, minMove: 0.01 }
             });
             mainSeries.setData(rateHistory);
 
-            volumeSeries = chart.addHistogramSeries({ priceFormat: { type: 'volume' }, priceScaleId: '' });
-            volumeSeries.priceScale().applyOptions({ scaleMargins: { top: 0.7, bottom: 0 } });
+            volumeSeries = mainChart.addHistogramSeries({
+                priceFormat: { type: 'volume' }, priceScaleId: ''
+            });
+            volumeSeries.priceScale().applyOptions({ scaleMargins: { top: 0.8, bottom: 0 } });
             volumeSeries.setData(volumeData);
 
-            const ma7Data = calculateMA(rateHistory, 7);
-            const ma25Data = calculateMA(rateHistory, 25);
-
-            ma7Series = chart.addLineSeries({
-                color: '#00d4ff', lineWidth: 1,
-                priceFormat: { type: 'price', precision: 2, minMove: 0.01 },
-                crosshairMarkerVisible: false, priceLineVisible: false, lastValueVisible: false
+            // RSI Chart
+            const rsiContainer = document.getElementById('rsiChart');
+            rsiChart = LightweightCharts.createChart(rsiContainer, {
+                layout: { background: { color: '#0b0e11' }, textColor: '#848e9c' },
+                grid: { vertLines: { color: '#2b3139' }, horzLines: { color: '#2b3139' } },
+                rightPriceScale: { borderColor: '#2b3139' },
+                timeScale: { borderColor: '#2b3139', visible: false },
+                width: rsiContainer.clientWidth,
+                height: 150
             });
-            ma7Series.setData(ma7Data);
 
-            ma25Series = chart.addLineSeries({
-                color: '#ff9500', lineWidth: 1,
-                priceFormat: { type: 'price', precision: 2, minMove: 0.01 },
-                crosshairMarkerVisible: false, priceLineVisible: false, lastValueVisible: false
+            rsiSeries = rsiChart.addLineSeries({ color: '#b185ff', lineWidth: 2 });
+            const rsiData = calculateRSI(rateHistory);
+            rsiSeries.setData(rsiData);
+
+            // MACD Chart
+            const macdContainer = document.getElementById('macdChart');
+            macdChart = LightweightCharts.createChart(macdContainer, {
+                layout: { background: { color: '#0b0e11' }, textColor: '#848e9c' },
+                grid: { vertLines: { color: '#2b3139' }, horzLines: { color: '#2b3139' } },
+                rightPriceScale: { borderColor: '#2b3139' },
+                timeScale: { borderColor: '#2b3139', visible: false },
+                width: macdContainer.clientWidth,
+                height: 150
             });
-            ma25Series.setData(ma25Data);
-            chart.timeScale().fitContent();
+
+            const macd = calculateMACD(rateHistory);
+            macdLineSeries = macdChart.addLineSeries({ color: '#3861fb', lineWidth: 2 });
+            macdLineSeries.setData(macd.macdLine);
+
+            macdSignalSeries = macdChart.addLineSeries({ color: '#f6465d', lineWidth: 1 });
+            macdSignalSeries.setData(macd.signalLine);
+
+            macdHistSeries = macdChart.addHistogramSeries({ priceFormat: { type: 'price', precision: 2 } });
+            macdHistSeries.setData(macd.histogram);
+
+            // 初期シグナル判定
+            if (rsiData.length > 0) {
+                determineSignal(rsiData[rsiData.length - 1].value, macd.macdLine[macd.macdLine.length - 1].value);
+            }
+
+            updateUI();
+            generateOrderBook();
+            generateRecentTrades();
         }
 
         function switchChartType(type, button) {
-            document.querySelectorAll('.btn-chart-type').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.chart-controls .control-btn').forEach(b => {
+                if (b.querySelector('i')) b.classList.remove('active');
+            });
             button.classList.add('active');
             if (currentChartType === type) return;
             currentChartType = type;
-            chart.removeSeries(mainSeries);
+            mainChart.removeSeries(mainSeries);
 
             if (type === 'candlestick') {
-                mainSeries = chart.addCandlestickSeries({
-                    upColor: '#00ffc8', downColor: '#ff4d7d', borderVisible: false,
-                    wickUpColor: '#00ffc8', wickDownColor: '#ff4d7d',
-                    priceFormat: { type: 'price', precision: 2, minMove: 0.01 }
+                mainSeries = mainChart.addCandlestickSeries({
+                    upColor: '#0ecb81', downColor: '#f6465d',
+                    borderVisible: false, wickUpColor: '#0ecb81', wickDownColor: '#f6465d'
                 });
                 mainSeries.setData(candlestickData);
             } else if (type === 'line') {
-                mainSeries = chart.addLineSeries({
-                    color: '#00d4ff', lineWidth: 2,
-                    priceFormat: { type: 'price', precision: 2, minMove: 0.01 },
-                    crosshairMarkerVisible: true, priceLineVisible: true, lastValueVisible: true
-                });
+                mainSeries = mainChart.addLineSeries({ color: '#fcd535', lineWidth: 2 });
                 mainSeries.setData(rateHistory);
             } else if (type === 'area') {
-                mainSeries = chart.addAreaSeries({
-                    topColor: 'rgba(0, 212, 255, 0.4)', bottomColor: 'rgba(0, 212, 255, 0.0)',
-                    lineColor: '#00d4ff', lineWidth: 2,
-                    priceFormat: { type: 'price', precision: 2, minMove: 0.01 },
-                    crosshairMarkerVisible: true, priceLineVisible: true, lastValueVisible: true
+                mainSeries = mainChart.addAreaSeries({
+                    topColor: 'rgba(252, 213, 53, 0.4)',
+                    bottomColor: 'rgba(252, 213, 53, 0.0)',
+                    lineColor: '#fcd535', lineWidth: 2
                 });
                 mainSeries.setData(rateHistory);
             }
+        }
+
+        function toggleIndicator(indicator, button) {
+            button.classList.toggle('active');
+            activeIndicators[indicator] = !activeIndicators[indicator];
+
+            if (indicator === 'rsi') {
+                document.getElementById('rsiChart').style.display = activeIndicators.rsi ? 'block' : 'none';
+            } else if (indicator === 'macd') {
+                document.getElementById('macdChart').style.display = activeIndicators.macd ? 'block' : 'none';
+            } else if (indicator === 'bb') {
+                if (activeIndicators.bb) {
+                    const bb = calculateBB(rateHistory);
+                    bbUpperSeries = mainChart.addLineSeries({ color: '#848e9c', lineWidth: 1, lineStyle: 2 });
+                    bbLowerSeries = mainChart.addLineSeries({ color: '#848e9c', lineWidth: 1, lineStyle: 2 });
+                    bbUpperSeries.setData(bb.upper);
+                    bbLowerSeries.setData(bb.lower);
+                } else {
+                    if (bbUpperSeries) mainChart.removeSeries(bbUpperSeries);
+                    if (bbLowerSeries) mainChart.removeSeries(bbLowerSeries);
+                }
+            }
+        }
+
+        function updateTimeframe(points, button) {
+            document.querySelectorAll('.chart-controls .control-btn').forEach(b => {
+                if (!b.querySelector('i')) b.classList.remove('active');
+            });
+            button.classList.add('active');
+        }
+
+        function updateUI() {
+            const price = currentRate.toFixed(2);
+            const change = ((Math.random() - 0.5) * 5).toFixed(2);
+            const changeClass = change >= 0 ? 'positive' : 'negative';
+
+            document.getElementById('header-price').textContent = price + ' TKUP';
+            document.getElementById('header-change').textContent = (change >= 0 ? '+' : '') + change + '%';
+            document.getElementById('header-change').className = 'ticker-value ' + changeClass;
+            document.getElementById('header-high').textContent = (currentRate * 1.05).toFixed(2);
+            document.getElementById('header-low').textContent = (currentRate * 0.95).toFixed(2);
+            document.getElementById('header-volume').textContent = '1.2M TKUC';
+
+            document.getElementById('stat-price').textContent = price + ' TKUP';
+            document.getElementById('stat-change').textContent = (change >= 0 ? '+' : '') + change + '%';
+            document.getElementById('stat-change').style.color = change >= 0 ? 'var(--green)' : 'var(--red)';
+
+            const rsiData = calculateRSI(rateHistory);
+            if (rsiData.length > 0) {
+                const rsi = rsiData[rsiData.length - 1].value.toFixed(1);
+                document.getElementById('stat-rsi').textContent = rsi;
+            }
+
+            const macd = calculateMACD(rateHistory);
+            if (macd.macdLine.length > 0) {
+                document.getElementById('stat-macd').textContent = macd.macdLine[macd.macdLine.length - 1].value.toFixed(2);
+            }
+        }
+
+        function generateOrderBook() {
+            const container = document.getElementById('orderbook');
+            let html = '';
+            for (let i = 0; i < 20; i++) {
+                const price = (currentRate + (10 - i) * 0.5).toFixed(2);
+                const amount = (Math.random() * 100 + 50).toFixed(2);
+                const total = (price * amount).toFixed(2);
+                const type = i < 10 ? 'ask' : 'bid';
+                const width = Math.random() * 60 + 20;
+                html += `<div class="orderbook-row ${type}" style="--width: ${width}%">
+                    <span>${price}</span>
+                    <span style="text-align: right;">${amount}</span>
+                    <span style="text-align: right;">${total}</span>
+                </div>`;
+            }
+            container.innerHTML = html;
+        }
+
+        function generateRecentTrades() {
+            const container = document.getElementById('recent-trades');
+            let html = '';
+            for (let i = 0; i < 30; i++) {
+                const isBuy = Math.random() > 0.5;
+                const price = (currentRate + (Math.random() - 0.5) * 2).toFixed(2);
+                const amount = (Math.random() * 10 + 1).toFixed(2);
+                const time = new Date(Date.now() - i * 5000).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                html += `<div class="trade-row">
+                    <span class="trade-price ${isBuy ? 'buy' : 'sell'}">${price}</span>
+                    <span style="text-align: right;">${amount}</span>
+                    <span style="text-align: right; color: var(--text-tertiary);">${time}</span>
+                </div>`;
+            }
+            container.innerHTML = html;
         }
 
         async function updateMarketData() {
@@ -558,104 +778,47 @@
                 const response = await fetch('/api/current-rate');
                 const data = await response.json();
                 if (data.success) {
-                    const prevRate = currentRate;
                     currentRate = data.rate;
                     const now = Math.floor(Date.now() / 1000);
-                    const priceStr = currentRate.toFixed(2);
-                    document.getElementById('current-rate-nav').innerText = priceStr + ' TKUP';
-                    document.getElementById('stats-price').innerText = priceStr + ' TKUP';
-
-                    const variance = currentRate * 0.02;
-                    const newCandle = {
-                        time: now, open: prevRate,
-                        high: currentRate + variance * Math.random(),
-                        low: currentRate - variance * Math.random(), close: currentRate
-                    };
-                    candlestickData.push(newCandle);
-                    if (candlestickData.length > 100) candlestickData.shift();
 
                     rateHistory.push({ time: now, value: currentRate });
-                    if (rateHistory.length > 100) rateHistory.shift();
+                    if (rateHistory.length > 200) rateHistory.shift();
 
-                    const newVolume = {
-                        time: now, value: Math.random() * 1000 + 500,
-                        color: currentRate >= prevRate ? 'rgba(0, 255, 200, 0.5)' : 'rgba(255, 77, 125, 0.5)'
-                    };
-                    volumeData.push(newVolume);
-                    if (volumeData.length > 100) volumeData.shift();
-
-                    if (rateHistory.length > 0) {
-                        const rates = rateHistory.map(d => d.value);
-                        const high = Math.max(...rates);
-                        const low = Math.min(...rates);
-                        const first = rates[0];
-                        const change = ((currentRate - first) / first * 100).toFixed(2);
-                        const totalVolume = volumeData.reduce((sum, v) => sum + v.value, 0);
-
-                        document.getElementById('stats-high').innerText = high.toFixed(2) + ' TKUP';
-                        document.getElementById('stats-low').innerText = low.toFixed(2) + ' TKUP';
-                        document.getElementById('stats-change').innerText = (change >= 0 ? '+' : '') + change + '%';
-                        document.getElementById('stats-change').className = 'summary-value ' + (change >= 0 ? 'text-success' : 'text-danger');
-                        document.getElementById('stats-volume').innerText = totalVolume.toFixed(0);
-                    }
-
-                    if (currentChartType === 'candlestick') {
-                        mainSeries.update(newCandle);
-                    } else {
+                    if (currentChartType === 'line' || currentChartType === 'area') {
                         mainSeries.update({ time: now, value: currentRate });
                     }
-                    volumeSeries.update(newVolume);
 
-                    const ma7Data = calculateMA(rateHistory, 7);
-                    const ma25Data = calculateMA(rateHistory, 25);
-                    if (ma7Data.length > 0) ma7Series.update(ma7Data[ma7Data.length - 1]);
-                    if (ma25Data.length > 0) ma25Series.update(ma25Data[ma25Data.length - 1]);
-                }
-            } catch (error) {
-                console.error('Failed to update market data:', error);
-            }
-        }
-
-        function startRealtimeUpdates() {
-            setInterval(async () => { await updateMarketData(); }, 2000);
-        }
-
-        async function updateTimeframe(points, button) {
-            document.querySelectorAll('.btn-time').forEach(b => b.classList.remove('active'));
-            button.classList.add('active');
-            try {
-                const response = await fetch('/api/rate-history?points=' + points);
-                const data = await response.json();
-                if (data.success) {
-                    candlestickData = data.history.map(h => {
-                        const variance = h.rate * 0.02;
-                        return {
-                            time: Math.floor(h.timestamp / 1000),
-                            open: h.rate - variance * Math.random(),
-                            high: h.rate + variance * Math.random(),
-                            low: h.rate - variance * Math.random(),
-                            close: h.rate
-                        };
-                    });
-                    rateHistory = candlestickData.map(c => ({ time: c.time, value: c.close }));
-                    if (currentChartType === 'candlestick') {
-                        mainSeries.setData(candlestickData);
-                    } else {
-                        mainSeries.setData(rateHistory);
+                    const rsiData = calculateRSI(rateHistory);
+                    if (rsiData.length > 0) {
+                        rsiSeries.update(rsiData[rsiData.length - 1]);
                     }
-                    ma7Series.setData(calculateMA(rateHistory, 7));
-                    ma25Series.setData(calculateMA(rateHistory, 25));
-                    chart.timeScale().fitContent();
+
+                    const macd = calculateMACD(rateHistory);
+                    if (macd.macdLine.length > 0) {
+                        macdLineSeries.update(macd.macdLine[macd.macdLine.length - 1]);
+                        macdSignalSeries.update(macd.signalLine[macd.signalLine.length - 1]);
+                        macdHistSeries.update(macd.histogram[macd.histogram.length - 1]);
+                        determineSignal(rsiData[rsiData.length - 1].value, macd.macdLine[macd.macdLine.length - 1].value);
+                    }
+
+                    updateUI();
                 }
             } catch (error) {
-                console.error('Failed to update timeframe:', error);
+                console.error('Update failed:', error);
             }
         }
+
+        window.addEventListener('resize', () => {
+            if (mainChart) mainChart.resize(document.getElementById('mainChart').clientWidth, document.getElementById('mainChart').clientHeight);
+            if (rsiChart) rsiChart.resize(document.getElementById('rsiChart').clientWidth, 150);
+            if (macdChart) macdChart.resize(document.getElementById('macdChart').clientWidth, 150);
+        });
 
         window.onload = async () => {
-            await initChart();
-            await updateMarketData();
-            startRealtimeUpdates();
+            await initCharts();
+            setInterval(updateMarketData, 2000);
+            setInterval(generateOrderBook, 3000);
+            setInterval(generateRecentTrades, 5000);
         };
     </script>
 </body>
