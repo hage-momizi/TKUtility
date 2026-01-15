@@ -291,6 +291,7 @@ async function updateTKUCRate() {
     // フェア価格を移動平均更新（高速化）
     if (!rateData.fairPrice) rateData.fairPrice = 5000; // 初回初期化
     rateData.fairPrice = rateData.fairPrice * 0.99 + currentRate * 0.01;
+    const fairPrice = rateData.fairPrice;
 
     // 市場状況を取得
     const marketData = analyzeMarketCondition();
@@ -340,11 +341,11 @@ async function updateTKUCRate() {
     const upperLimit = getDynamicUpperLimit(marketData);
     const lowerLimit = 100;
 
-    if (currentRate > upperLimit * 0.8) { // 上限の80%を超えたら
-      const excessRatio = (currentRate - upperLimit * 0.8) / (upperLimit * 0.2);
-      const additionalPressure = Math.min(3, excessRatio * 3); // 最大-3%追加
+    if (currentRate > upperLimit * 0.95) { // 上限の95%を超えたら
+      const excessRatio = (currentRate - upperLimit * 0.95) / (upperLimit * 0.05);
+      const additionalPressure = Math.min(2, excessRatio * 2); // 最大-2%追加
       changePercent -= additionalPressure;
-      console.log(`📈 上限接近調整: -${additionalPressure.toFixed(1)}%追加下降`);
+      console.log(`📈 上限接近調整: -${additionalPressure.toFixed(2)}%追加下降`);
     }
 
     // 常時更新のため間隔制御を削除
@@ -1506,6 +1507,7 @@ function calculateSmartRateChange(marketData, chatActivity, top3Ratio, recentTra
   let volatility = 1.0;
   if (recentTrades >= 5) volatility = 2.0;
   else if (recentTrades >= 2) volatility = 1.3;
+  else if (recentTrades === 0 && netDemand === 0) volatility = 0.5;
 
   // 合成
   let changePercent = (noise + demandImpact + momentum) * volatility;
@@ -1538,7 +1540,10 @@ function calculateSmartRateChange(marketData, chatActivity, top3Ratio, recentTra
   }
 
   // チャット盛り上がり度をレート計算に追加
-  const chatBoost = (chatActivity / 100) * 0.1; // 盛り上がり0-100% → 最大+0.1%
+  let chatBoost = (chatActivity / 100) * 0.1; // 盛り上がり0-100% → 最大+0.1%
+  if (recentTrades === 0 && netDemand === 0) {
+    chatBoost *= 0.1;
+  }
   changePercent += chatBoost;
 
   // トレンド慣性更新（減衰）
@@ -1563,6 +1568,10 @@ function calculateSmartRateChange(marketData, chatActivity, top3Ratio, recentTra
     } else if (sellerRatio > 0.3) { // 売り手が30%超（供給過多）
       supplyAdjustment = -0.3; // 下落
     }
+  }
+
+  if (recentTrades === 0 && netDemand === 0) {
+    supplyAdjustment *= 0.1;
   }
 
   changePercent += supplyAdjustment;
