@@ -1503,7 +1503,7 @@ function calculateSmartRateChange(marketData, chatActivity, top3Ratio, recentTra
   const deviationFactor = Math.min(1, absDeviation / 0.05); // 5%乖離で最大ノイズ
   noise *= deviationFactor;
   if (isIdle) {
-    noise *= 0.1;
+    noise = 0;
   }
 
   // 需要影響（過去10分）
@@ -1526,16 +1526,18 @@ function calculateSmartRateChange(marketData, chatActivity, top3Ratio, recentTra
   // マーケットの機嫌倍率をかける
   changePercent *= marketState.regime;
 
-  // トレンド強さの慣性
-  marketState.trendPower = marketState.trendPower * 0.9 + Math.abs(changePercent) * 0.1;
-  changePercent *= (1 + marketState.trendPower);
+  // トレンド強さの慣性（抑制）
+  marketState.trendPower = marketState.trendPower * 0.7 + Math.abs(changePercent) * 0.03;
 
   // 1tick最大変動 ±0.5%
   changePercent = Math.max(-0.5, Math.min(0.5, changePercent));
 
   // 重力追加（基準価格からの距離）
-  const GRAVITY_K = 0.5;
+  const GRAVITY_K = 0.05;
   let gravity = -deviation * GRAVITY_K;
+  if (absDeviation < 0.02) {
+    gravity *= 0.2;
+  }
   gravity = Math.max(-0.3, Math.min(0.3, gravity)); // 安全クリップ
   changePercent += gravity;
 
