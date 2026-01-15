@@ -1484,6 +1484,10 @@ function getRecentTradeCount() {
  */
 function calculateSmartRateChange(marketData, chatActivity, top3Ratio, recentTrades, netDemand) {
   const currentRate = getTKUCRate();
+  const fairPrice = getFairPrice();
+  const deviation = (currentRate - fairPrice) / fairPrice;
+  const absDeviation = Math.abs(deviation);
+  const isIdle = recentTrades === 0 && netDemand === 0;
 
   // レジーム変更チェック（5〜15分に1回）
   if (Date.now() > marketState.nextRegimeChange) {
@@ -1495,7 +1499,12 @@ function calculateSmartRateChange(marketData, chatActivity, top3Ratio, recentTra
   }
 
   // ノイズ（強化） ±0.25%
-  const noise = (Math.random() - 0.5) * 0.5;
+  let noise = (Math.random() - 0.5) * 0.5;
+  const deviationFactor = Math.min(1, absDeviation / 0.05); // 5%乖離で最大ノイズ
+  noise *= deviationFactor;
+  if (isIdle) {
+    noise *= 0.1;
+  }
 
   // 需要影響（過去10分）
   const demandImpact = calculateDemandImpact(netDemand, marketData);
@@ -1525,9 +1534,7 @@ function calculateSmartRateChange(marketData, chatActivity, top3Ratio, recentTra
   changePercent = Math.max(-0.5, Math.min(0.5, changePercent));
 
   // 重力追加（基準価格からの距離）
-  const fairPrice = getFairPrice(); // 動的基準価格
-  const deviation = (currentRate - fairPrice) / fairPrice;
-  const GRAVITY_K = 0.3;
+  const GRAVITY_K = 0.5;
   let gravity = -deviation * GRAVITY_K;
   gravity = Math.max(-0.3, Math.min(0.3, gravity)); // 安全クリップ
   changePercent += gravity;
