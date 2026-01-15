@@ -195,7 +195,7 @@ function checkCasinoDailyBonus(userId) {
 
 /**
  * TKUCレートを取得
- * @returns {object} レートデータ
+ * @returns {number} 現在のレート
  */
 function getTKUCRate() {
   const rateData = loadJSON(FILES.TKUC_RATE);
@@ -288,11 +288,6 @@ async function updateTKUCRate() {
     const currentRate = getTKUCRate();
     const rateData = loadJSON(FILES.TKUC_RATE);
 
-    // フェア価格を移動平均更新（高速化）
-    if (!rateData.fairPrice) rateData.fairPrice = 5000; // 初回初期化
-    rateData.fairPrice = rateData.fairPrice * 0.99 + currentRate * 0.01;
-    const fairPrice = rateData.fairPrice;
-
     // 市場状況を取得
     const marketData = analyzeMarketCondition();
 
@@ -301,6 +296,9 @@ async function updateTKUCRate() {
     const top3Ratio = analyzeTop3Ratio(); // 上位3人の保有割合
     const recentTrades = getRecentTradeCount(); // 最近の取引数
     const netDemand = getNetDemand(); // 正味需要（買-売）
+
+    // フェア価格は取引約定時のみ更新
+    const fairPrice = rateData.fairPrice || 5000;
 
     console.log(`🔍 デバッグ: recentTrades=${recentTrades}, chatActivity=${chatActivity.toFixed(1)}, top3Ratio=${top3Ratio.toFixed(2)}, netDemand=${netDemand}`);
 
@@ -311,74 +309,18 @@ async function updateTKUCRate() {
     changePercent = calculateSmartRateChange(marketData, chatActivity, top3Ratio, recentTrades, netDemand);
     console.log(`📊 スマート計算: ${changePercent.toFixed(2)}%`);
 
-    // 追加の市場調整（売り圧力影響を大幅緩和）
-    const pressureDiff = marketData.buyPressure - marketData.sellPressure;
-    if (pressureDiff > 0) {
-      changePercent += Math.min(0.5, pressureDiff * 0.02); // 0.1 → 0.02に緩和（5分の1）
-    } else if (pressureDiff < 0) {
-      changePercent += Math.max(-0.5, pressureDiff * 0.02); // 0.1 → 0.02に緩和（5分の1）
-    }
 
-    // トレンド抑制（緩和）
-    const recentChanges = getRecentRateChanges();
-    if (recentChanges.length >= 3) {
-      const avgChange = recentChanges.reduce((a, b) => a + b, 0) / recentChanges.length;
-      if (Math.abs(avgChange) > 3) {
-        changePercent -= avgChange * 0.05;
-      }
-    }
-
-    // 最小変動保証
-    const minChange = 0.05; // 0.05%
-    if (Math.abs(changePercent) < minChange) {
-      changePercent = changePercent >= 0 ? minChange : -minChange;
-    }
-
-    // 変動幅を制限（最大±5%）
-    changePercent = Math.max(-5, Math.min(5, changePercent));
-
-    // 自動調整：上限接近時の追加下降圧力
-    const upperLimit = getDynamicUpperLimit(marketData);
-    const lowerLimit = 100;
-
-    if (currentRate > upperLimit * 0.95) { // 上限の95%を超えたら
-      const excessRatio = (currentRate - upperLimit * 0.95) / (upperLimit * 0.05);
-      const additionalPressure = Math.min(2, excessRatio * 2); // 最大-2%追加
-      changePercent -= additionalPressure;
-      console.log(`📈 上限接近調整: -${additionalPressure.toFixed(2)}%追加下降`);
-    }
-
-    // 常時更新のため間隔制御を削除
-
-    // 下限保護強化（クッション化）
-    if (currentRate <= lowerLimit * 1.1) { // 下限の110%以下
-      // 強制的に上昇させる（最低+0.3%保証）- バネからクッションへ
-      changePercent = Math.max(0.3, changePercent);
-      console.log(`🚨 下限保護発動: 強制上昇 +${changePercent.toFixed(2)}%`);
-    } else if (currentRate < lowerLimit * 1.2) { // 下限の120%未満
-      // 通常の下限接近調整
-      const deficitRatio = (lowerLimit * 1.2 - currentRate) / (lowerLimit * 0.2);
-      const additionalBoost = Math.min(0.5, deficitRatio * 0.5); // 最大+0.5%追加
-      changePercent += additionalBoost;
-      console.log(`📉 下限接近調整: +${additionalBoost.toFixed(1)}%追加上昇`);
-    }
 
     const newRate = currentRate * (1 + changePercent / 100);
 
     console.log('Rate calculation:', {
       current: currentRate,
       changePercent: changePercent.toFixed(2) + '%',
-      newRate: newRate.toFixed(2),
-      upperLimit,
-      buyPressure: marketData.buyPressure,
-      sellPressure: marketData.sellPressure
+      newRate: newRate.toFixed(2)
     });
 
-    // レート範囲チェック（動的上限・下限）
-    const clampedRate = Math.max(lowerLimit, Math.min(upperLimit, newRate));
-
     // レート更新
-    rateData.currentRate = Math.round(clampedRate * 100) / 100; // 小数点2桁
+    rateData.currentRate = Math.round(newRate * 100) / 100; // 小数点2桁
     rateData.lastUpdate = Date.now();
     rateData.history = rateData.history || [];
     rateData.history.push({ timestamp: Date.now(), rate: rateData.currentRate });
@@ -1188,28 +1130,23 @@ function executeTrade(buyOrder, sellOrder, amount, price) {
 }
 
 /**
- * 取引情報からレート更新
+ * 取引情報からフェア価格更新
  * @param {Array} trades - 取引情報
  */
 function updateRateFromTrades(trades) {
   if (trades.length === 0) return;
 
-  // 最新取引価格でレート更新
+  // 最新取引価格でフェア価格のみ更新
   const latestTrade = trades[trades.length - 1];
   const rateData = loadJSON(FILES.TKUC_RATE);
 
-  rateData.currentRate = Math.round(latestTrade.price * 100) / 100;
-  rateData.lastUpdate = Date.now();
-  rateData.history = rateData.history || [];
-  rateData.history.push({ timestamp: Date.now(), rate: rateData.currentRate });
+  if (!rateData.fairPrice) rateData.fairPrice = rateData.currentRate || 5000;
 
-  // 履歴を最新50件に制限
-  if (rateData.history.length > 50) {
-    rateData.history = rateData.history.slice(-50);
-  }
+  // フェア価格だけ更新（世界の評価値）
+  rateData.fairPrice = rateData.fairPrice * 0.99 + latestTrade.price * 0.01;
 
   saveJSON(FILES.TKUC_RATE, rateData);
-  console.log(`市場レート更新: ${rateData.currentRate} TKUP（取引価格反映）`);
+  console.log(`フェア価格更新: ${rateData.fairPrice} TKUP（取引価格反映）`);
 }
 
 /**
@@ -1474,7 +1411,7 @@ function getRecentTradeCount() {
 }
 
 /**
- * スマートレート計算（tick方式）
+ * スマートレート計算（tick方式）- 最終版
  * @param {object} marketData - 市場データ
  * @param {number} chatActivity - チャット盛り上がり度
  * @param {number} top3Ratio - 上位3人保有割合
@@ -1485,112 +1422,43 @@ function getRecentTradeCount() {
 function calculateSmartRateChange(marketData, chatActivity, top3Ratio, recentTrades, netDemand) {
   const currentRate = getTKUCRate();
   const fairPrice = getFairPrice();
+
   const deviation = (currentRate - fairPrice) / fairPrice;
-  const absDeviation = Math.abs(deviation);
-  const isIdle = recentTrades === 0 && netDemand === 0;
 
-  // レジーム変更チェック（5〜15分に1回）
-  if (Date.now() > marketState.nextRegimeChange) {
-    const keys = Object.keys(REGIMES);
-    const key = keys[Math.floor(Math.random() * keys.length)];
-    marketState.regime = REGIMES[key];
-    marketState.nextRegimeChange = Date.now() + (5 + Math.random() * 10) * 60 * 1000;
-    console.log(`🌪️ マーケット状態変更: ${key} (${marketState.regime}倍)`);
-  }
+  const rawDemand = netDemand * 0.005;
+  const effectiveDemand = recentTrades === 0 ? 0 : rawDemand;
 
-  // ノイズ（強化） ±0.25%
-  let noise = (Math.random() - 0.5) * 0.5;
-  const deviationFactor = Math.min(1, absDeviation / 0.05); // 5%乖離で最大ノイズ
-  noise *= deviationFactor;
-  if (isIdle) {
-    noise = 0;
-  }
+  let change;
 
-  // 需要影響（過去10分）
-  const demandImpact = calculateDemandImpact(netDemand, marketData);
+  if (effectiveDemand === 0) {
+    change = lastRateChange * 0.2;  // もっと殺す
 
-  // トレンド慣性（前回変動の残り）
-  const momentum = lastRateChange * 0.3;
-
-  // ボラティリティ制御（取引活発度連動）
-  let volatility = 1.0;
-  if (recentTrades >= 5) volatility = 2.0;
-  else if (recentTrades >= 2) volatility = 1.3;
-  else if (recentTrades === 0 && netDemand === 0) volatility = 0.5;
-
-  // 合成
-  let changePercent = (noise + demandImpact + momentum) * volatility;
-
-
-
-  // マーケットの機嫌倍率をかける
-  changePercent *= marketState.regime;
-
-  // トレンド強さの慣性（抑制）
-  marketState.trendPower = marketState.trendPower * 0.7 + Math.abs(changePercent) * 0.03;
-
-  // 1tick最大変動 ±0.5%
-  changePercent = Math.max(-0.5, Math.min(0.5, changePercent));
-
-  // 重力追加（基準価格からの距離）
-  const GRAVITY_K = 0.05;
-  let gravity = -deviation * GRAVITY_K;
-  if (absDeviation < 0.02) {
-    gravity *= 0.2;
-  }
-  gravity = Math.max(-0.3, Math.min(0.3, gravity)); // 安全クリップ
-  changePercent += gravity;
-
-  console.log(`🌍 乖離=${(deviation*100).toFixed(2)}% 重力=${(gravity*100).toFixed(4)}%`);
-
-  // 逆方向抑制強化：買われてるのに下がりにくくする
-  if (netDemand > 0 && changePercent < 0) {
-    changePercent *= 0.2; // 5分の1に抑制
-  }
-
-  // チャット盛り上がり度をレート計算に追加
-  let chatBoost = (chatActivity / 100) * 0.1; // 盛り上がり0-100% → 最大+0.1%
-  if (recentTrades === 0 && netDemand === 0) {
-    chatBoost *= 0.1;
-  }
-  changePercent += chatBoost;
-
-  // トレンド慣性更新（減衰）
-  lastRateChange = changePercent * 0.85; // 毎tick15%減衰
-
-  // 下限・上限クッション
-  if (currentRate < 100 * 1.1 && changePercent < 0) {
-    changePercent *= 0.3; // 下方向を弱める
-  }
-
-  // 供給バランス調整（売り手割合ベース）
-  const totalHolders = getTKUCHoldersCount();
-  const recentSellers = getRecentSellersCount();
-  let supplyAdjustment = 0;
-
-  if (totalHolders > 0) {
-    const sellerRatio = recentSellers / totalHolders;
-    console.log(`📊 供給バランス: 保有者=${totalHolders}, 売り手=${recentSellers}, 割合=${(sellerRatio*100).toFixed(1)}%`);
-
-    if (sellerRatio < 0.1) { // 売り手が10%未満（供給不足）
-      supplyAdjustment = 0.3; // 上昇
-    } else if (sellerRatio > 0.3) { // 売り手が30%超（供給過多）
-      supplyAdjustment = -0.3; // 下落
+    // 乖離が大きい時だけ、ほんの少し重力
+    if (Math.abs(deviation) > 0.2) {
+      const GRAVITY = 0.02;
+      change -= deviation * GRAVITY * 0.2;
     }
+  } else {
+    change = lastRateChange * 0.6 + effectiveDemand * 0.4;
   }
 
-  if (recentTrades === 0 && netDemand === 0) {
-    supplyAdjustment *= 0.1;
+  const GRAVITY = 0.02;
+  change -= deviation * GRAVITY;
+
+  // 減衰強化
+  change *= 0.85;
+
+  if (recentTrades === 0 && Math.abs(change) < 0.02) {
+    change = 0;
   }
 
-  changePercent += supplyAdjustment;
+  change = Math.max(-3, Math.min(3, change));
 
-  console.log(`📈 Tick変動: ノイズ=${noise.toFixed(4)}%, 需要=${demandImpact.toFixed(4)}%, 慣性=${momentum.toFixed(4)}%, 重力=${gravity.toFixed(4)}%, 供給=${supplyAdjustment.toFixed(4)}%, チャット=${chatBoost.toFixed(4)}%, 最終=${changePercent.toFixed(4)}%`);
+  // 詳細ログ出力
+  console.log(`📊 詳細: currentRate=${currentRate.toFixed(2)}, fairPrice=${fairPrice.toFixed(2)}, deviation=${(deviation*100).toFixed(2)}%, change=${change.toFixed(4)}, lastRateChange=${lastRateChange.toFixed(4)}`);
 
-  // トレンド慣性更新
-  lastRateChange = changePercent;
-
-  return changePercent;
+  lastRateChange = change;
+  return change;
 }
 
 /**
