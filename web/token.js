@@ -458,6 +458,8 @@ async function loginWithModal() {
       modalLoginBtn.disabled = false;
       modalLoginBtn.textContent = '認証';
     }
+    // ログインボタンの状態リセット
+    setLoading(false);
   }
 }
 
