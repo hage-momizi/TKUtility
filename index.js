@@ -1,4 +1,4 @@
-// 環境変数読み込み（最初に実行）
+// 環境変数読み込み
 require('dotenv').config();
 
 const { Client, DefaultWebSocketManagerOptions, GatewayIntentBits, Events } = require('discord.js');
