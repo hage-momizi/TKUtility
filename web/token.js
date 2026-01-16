@@ -96,14 +96,18 @@ function setTradeState(enabled) {
   tradeTypeInputs.forEach(input => input.disabled = !enabled);
 }
 
-async function login() {
+async function login(isAutoLogin = false) {
   const token = (tokenInput.value || '').trim();
   if (!token) {
-    loginStatus.textContent = 'トークンを入力してください。';
+    if (!isAutoLogin) {
+      loginStatus.textContent = 'トークンを入力してください。';
+    }
     return;
   }
 
-  setLoading(true, '認証中...');
+  if (!isAutoLogin) {
+    setLoading(true, '認証中...');
+  }
   try {
     const response = await fetch('/api/token-login', {
       method: 'POST',
@@ -119,7 +123,11 @@ async function login() {
     authToken = token;
     // トークンをローカルストレージに保存
     localStorage.setItem('tkuc_token', authToken);
-    loginStatus.textContent = `ログイン成功: ${data.user.displayName || data.user.username}`;
+    if (!isAutoLogin) {
+      loginStatus.textContent = `ログイン成功: ${data.user.displayName || data.user.username}`;
+    } else {
+      loginStatus.textContent = `自動ログイン成功: ${data.user.displayName || data.user.username}`;
+    }
     loginBtn.disabled = true;
     logoutBtn.disabled = false;
     tokenInput.disabled = true;
@@ -129,11 +137,20 @@ async function login() {
     startPolling();
   } catch (error) {
     authToken = null;
-    loginStatus.textContent = error.message;
-    balanceInfo.innerHTML = '<div class="text-danger">認証に失敗しました。</div>';
+    if (!isAutoLogin) {
+      loginStatus.textContent = error.message;
+      balanceInfo.innerHTML = '<div class="text-danger">認証に失敗しました。</div>';
+    } else {
+      // 自動ログイン失敗時はローカルストレージから削除
+      localStorage.removeItem('tkuc_token');
+      loginStatus.textContent = '自動ログインに失敗しました。';
+      balanceInfo.innerHTML = '<div class="text-muted">ログインして残高を表示</div>';
+    }
     setTradeState(false);
   } finally {
-    setLoading(false);
+    if (!isAutoLogin) {
+      setLoading(false);
+    }
   }
 }
 
@@ -315,6 +332,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   const savedToken = localStorage.getItem('tkuc_token');
   if (savedToken) {
     tokenInput.value = savedToken;
-    await login();
+    await login(true);
   }
 });
