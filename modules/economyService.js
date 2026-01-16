@@ -96,7 +96,7 @@ function calculateTKUPGain(content, hasImage) {
  */
 function getFairPrice() {
   const rateData = loadJSON(FILES.TKUC_RATE);
-  return rateData.fairPrice || 5000; // 移動平均フェア価格を返す
+  return rateData.fairPrice || rateData.currentRate || 500; // 移動平均フェア価格を返す
 }
 
 /**
