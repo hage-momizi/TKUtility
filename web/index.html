@@ -62,7 +62,42 @@
             </div>
         </div>
 
-        <section id="token-console" class="terminal-section">
+        <!-- ログイン画面 -->
+        <div id="loginScreen" class="login-screen">
+            <div class="login-container">
+                <div class="login-card">
+                    <div class="login-header">
+                        <i class="fa-solid fa-bolt-lightning"></i>
+                        <h2>TKUC MARKET TERMINAL</h2>
+                        <p>API Keyでログインして取引を開始</p>
+                    </div>
+
+                    <div class="login-body">
+                        <div class="mb-4">
+                            <label class="form-label">Access Key : Secret Key</label>
+                            <input id="tokenInput" type="password" class="form-control form-control-lg" placeholder="TKU-XXXXXX:YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY">
+                            <div class="form-text">
+                                <small class="text-muted">
+                                    <i class="fa-solid fa-info-circle me-1"></i>
+                                    Discordの <code>/tk-token</code> コマンドで取得した鍵を入力してください
+                                </small>
+                            </div>
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button id="loginBtn" class="btn btn-primary btn-lg">
+                                <i class="fa-solid fa-right-to-bracket me-2"></i>ログイン
+                            </button>
+                        </div>
+
+                        <div id="loginStatus" class="mt-3 text-center"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- メインコンテンツ（ログイン後に表示） -->
+        <section id="mainContent" class="terminal-section" style="display: none;">
             <div class="row g-3 g-lg-4 terminal-grid">
                 <div class="col-xl-8">
                     <div class="glass-card">
@@ -116,19 +151,14 @@
                 <div class="col-xl-4">
                     <div class="side-stack">
                         <div class="token-card">
-                            <div class="card-header">
-                                <i class="fa-solid fa-key me-2"></i>トークンログイン
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <span><i class="fa-solid fa-user me-2"></i>アカウント情報</span>
+                                <button id="logoutBtn" class="btn btn-outline-secondary btn-sm" disabled>
+                                    <i class="fa-solid fa-right-from-bracket"></i>
+                                </button>
                             </div>
                             <div class="card-body">
-                                <div class="mb-3">
-                                    <label class="form-label">プライベートトークン</label>
-                                    <input id="tokenInput" type="password" class="form-control" placeholder="TKU-...">
-                                </div>
-                                <div class="d-grid gap-2">
-                                    <button id="loginBtn" class="btn btn-primary">ログイン</button>
-                                    <button id="logoutBtn" class="btn btn-outline-secondary" disabled>ログアウト</button>
-                                </div>
-                                <div id="loginStatus" class="mt-3 text-muted"></div>
+                                <div id="userInfo" class="text-muted">ログインしていません</div>
                             </div>
                         </div>
 
@@ -633,9 +663,11 @@
         }
 
         window.onload = async () => {
-            await initChart();
-            await updateMarketData();
-            startRealtimeUpdates();
+            // 初期状態: ログイン画面を表示
+            document.getElementById('loginScreen').style.display = 'flex';
+            document.getElementById('mainContent').style.display = 'none';
+
+            // チャートはログイン後に初期化
         };
     </script>
 </body>

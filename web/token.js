@@ -1,4 +1,6 @@
 let authToken = null;
+let accessKey = null;
+let secretKey = null;
 let balancePoller = null;
 let lastBalance = null;
 let alertConfig = null;
@@ -97,18 +99,31 @@ function setTradeState(enabled) {
 }
 
 async function login() {
-  const token = (tokenInput.value || '').trim();
-  if (!token) {
-    loginStatus.textContent = 'トークンを入力してください。';
+  const input = (tokenInput.value || '').trim();
+  if (!input) {
+    loginStatus.textContent = 'Access KeyとSecret Keyを入力してください。';
+    return;
+  }
+
+  // 入力形式: AccessKey:SecretKey
+  const parts = input.split(':');
+  if (parts.length !== 2) {
+    loginStatus.textContent = '形式: TKU-XXXXXX:YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY';
+    return;
+  }
+
+  const [accessKeyInput, secretKeyInput] = parts;
+  if (!accessKeyInput.startsWith('TKU-')) {
+    loginStatus.textContent = 'Access KeyはTKU-で始まる必要があります。';
     return;
   }
 
   setLoading(true, '認証中...');
   try {
-    const response = await fetch('/api/token-login', {
+    const response = await fetch('/api/keys-login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token })
+      body: JSON.stringify({ accessKey: accessKeyInput, secretKey: secretKeyInput })
     });
 
     if (!response.ok) {
@@ -116,8 +131,22 @@ async function login() {
     }
 
     const data = await response.json();
-    authToken = token;
-    loginStatus.textContent = `ログイン成功: ${data.user.displayName || data.user.username}`;
+    accessKey = accessKeyInput;
+    secretKey = secretKeyInput;
+
+    // ログイン成功: UI切り替え
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('mainContent').style.display = 'block';
+
+    // ユーザー情報表示
+    const userInfoEl = document.getElementById('userInfo');
+    if (userInfoEl) {
+      userInfoEl.innerHTML = `
+        <div><strong>${data.user.displayName || data.user.username}</strong></div>
+        <div class="text-muted small">${data.guild.name}</div>
+      `;
+    }
+
     loginBtn.disabled = true;
     logoutBtn.disabled = false;
     tokenInput.disabled = true;
@@ -125,11 +154,16 @@ async function login() {
     renderBalance(data);
     setTradeState(true);
     startPolling();
+
+    // チャート初期化
+    await initChart();
+    await updateMarketData();
+    startRealtimeUpdates();
+
   } catch (error) {
-    authToken = null;
+    accessKey = null;
+    secretKey = null;
     loginStatus.textContent = error.message;
-    balanceInfo.innerHTML = '<div class="text-danger">認証に失敗しました。</div>';
-    setTradeState(false);
   } finally {
     setLoading(false);
   }
@@ -137,7 +171,13 @@ async function login() {
 
 function logout() {
   stopPolling();
-  authToken = null;
+  accessKey = null;
+  secretKey = null;
+
+  // UI切り替え: ログイン画面表示、メインコンテンツ非表示
+  document.getElementById('loginScreen').style.display = 'flex';
+  document.getElementById('mainContent').style.display = 'none';
+
   tokenInput.disabled = false;
   loginBtn.disabled = false;
   logoutBtn.disabled = true;
@@ -150,6 +190,12 @@ function logout() {
   lastBalance = null;
   loginStatus.textContent = 'ログアウトしました。';
   setTradeState(false);
+
+  // ユーザー情報クリア
+  const userInfoEl = document.getElementById('userInfo');
+  if (userInfoEl) {
+    userInfoEl.innerHTML = 'ログインしていません';
+  }
 }
 
 function startPolling() {
@@ -166,9 +212,16 @@ function stopPolling() {
 }
 
 async function fetchBalance() {
-  if (!authToken) return;
+  if (!accessKey || !secretKey) return;
+
+  const timestamp = Date.now().toString();
+  const message = timestamp + JSON.stringify({});
+  const signature = crypto.createHmac('sha256', secretKey)
+    .update(message)
+    .digest('hex');
+
   try {
-    const url = `/api/token-balance?token=${encodeURIComponent(authToken)}`;
+    const url = `/api/keys-balance?accessKey=${encodeURIComponent(accessKey)}&signature=${encodeURIComponent(signature)}&timestamp=${timestamp}`;
     const response = await fetch(url);
     if (!response.ok) {
       throw new Error('残高取得に失敗しました');
@@ -184,7 +237,7 @@ async function fetchBalance() {
 }
 
 async function executeTrade() {
-    if (!authToken) return;
+    if (!accessKey || !secretKey) return;
     const amount = Number(tradeAmountInput.value);
     if (!amount || amount <= 0) {
         tradeResult.innerHTML = '<div class="text-danger">数量を入力してください。</div>';
@@ -192,13 +245,25 @@ async function executeTrade() {
     }
     const type = document.querySelector('input[name="tradeType"]:checked').value;
 
+    const timestamp = Date.now().toString();
+    const body = { type, amount };
+    const message = timestamp + JSON.stringify(body);
+    const signature = crypto.createHmac('sha256', secretKey)
+      .update(message)
+      .digest('hex');
+
     executeTradeBtn.disabled = true;
     tradeResult.innerHTML = '<div class="text-muted">取引実行中...</div>';
     try {
-        const response = await fetch('/api/token-order', {
+        const response = await fetch('/api/keys-order', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ token: authToken, type, amount })
+            headers: {
+              'Content-Type': 'application/json',
+              'x-access-key': accessKey,
+              'x-signature': signature,
+              'x-timestamp': timestamp
+            },
+            body: JSON.stringify(body)
         });
 
         const data = await response.json();
@@ -227,7 +292,7 @@ async function executeTrade() {
 }
 
 function openTradeConfirmModal() {
-    if (!authToken) return;
+    if (!accessKey || !secretKey) return;
     const amount = Number(tradeAmountInput.value);
     if (!amount || amount <= 0) {
         tradeResult.innerHTML = '<div class="text-danger">数量を入力してください。</div>';
