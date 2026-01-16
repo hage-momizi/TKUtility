@@ -206,7 +206,7 @@ function setupSchedules(client) {
     } catch (error) {
       console.error('TKUCレート更新スケジュールエラー:', error);
     }
-  }, 1000);
+  }, 2000);
 
   console.log('✅ 常時レート更新開始（2秒間隔）');
 
