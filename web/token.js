@@ -17,6 +17,13 @@ const executeTradeBtn = document.getElementById('executeTradeBtn');
 const tradeAmountInput = document.getElementById('tradeAmount');
 const tradeTypeInputs = document.querySelectorAll('input[name="tradeType"]');
 const alertRateInput = document.getElementById('alertRate');
+const confirmTradeModalEl = document.getElementById('tradeConfirmModal');
+const confirmTradeBtn = document.getElementById('confirmTradeBtn');
+const confirmType = document.getElementById('confirmType');
+const confirmAmount = document.getElementById('confirmAmount');
+const confirmEstimate = document.getElementById('confirmEstimate');
+const confirmTradeTypeInput = document.getElementById('confirmTradeType');
+let confirmModalInstance = null;
 const alertDirectionSelect = document.getElementById('alertDirection');
 const setAlertBtn = document.getElementById('setAlertBtn');
 const clearAlertBtn = document.getElementById('clearAlertBtn');
@@ -30,23 +37,27 @@ function setLoading(state, message = '') {
   }
 }
 
-function updateTradeSummary() {
-  const amount = Number(tradeAmountInput.value) || 0;
-  const type = document.querySelector('input[name="tradeType"]:checked').value;
-  if (!lastBalance) {
-    tradeSummary.textContent = '取引内容: --';
-    return;
-  }
-  const rate = lastBalance.rate;
-  if (type === 'buy') {
-    const tkupNeeded = Math.round(amount * rate * 1.03 * 100) / 100;
-    tradeSummary.textContent = `購入: ${amount.toFixed(2)} TKUC / コスト ${tkupNeeded.toFixed(2)} TKUP (手数料3%)`;
-  } else {
+function getTradeEstimate(amount, type, rate) {
+    if (type === 'buy') {
+        const tkupNeeded = Math.round(amount * rate * 1.03 * 100) / 100;
+        return `${tkupNeeded.toFixed(2)} TKUP (手数料3%)`;
+    }
     const gross = amount * rate;
     const fee = Math.round(gross * 0.02 * 100) / 100;
     const tkupReceived = Math.round((gross - fee) * 100) / 100;
-    tradeSummary.textContent = `売却: ${amount.toFixed(2)} TKUC / 受取 ${tkupReceived.toFixed(2)} TKUP (手数料2%)`;
-  }
+    return `${tkupReceived.toFixed(2)} TKUP (手数料2%)`;
+}
+
+function updateTradeSummary() {
+    const amount = Number(tradeAmountInput.value) || 0;
+    const type = document.querySelector('input[name="tradeType"]:checked').value;
+    if (!lastBalance) {
+        tradeSummary.textContent = '取引内容: --';
+        return;
+    }
+    const rate = lastBalance.rate;
+    const estimate = getTradeEstimate(amount, type, rate);
+    tradeSummary.textContent = `${type === 'buy' ? '購入' : '売却'}: ${amount.toFixed(2)} TKUC / ${estimate}`;
 }
 
 function renderBalance(data) {
@@ -173,46 +184,80 @@ async function fetchBalance() {
 }
 
 async function executeTrade() {
-  if (!authToken) return;
-  const amount = Number(tradeAmountInput.value);
-  if (!amount || amount <= 0) {
-    tradeResult.innerHTML = '<div class="text-danger">数量を入力してください。</div>';
-    return;
-  }
-  const type = document.querySelector('input[name="tradeType"]:checked').value;
-
-  executeTradeBtn.disabled = true;
-  tradeResult.innerHTML = '<div class="text-muted">取引実行中...</div>';
-  try {
-    const response = await fetch('/api/token-order', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token: authToken, type, amount })
-    });
-
-    const data = await response.json();
-    if (!response.ok || !data.success) {
-      throw new Error(data.error || '取引に失敗しました。');
+    if (!authToken) return;
+    const amount = Number(tradeAmountInput.value);
+    if (!amount || amount <= 0) {
+        tradeResult.innerHTML = '<div class="text-danger">数量を入力してください。</div>';
+        return;
     }
+    const type = document.querySelector('input[name="tradeType"]:checked').value;
 
-    lastBalance = data;
-    renderBalance(data);
-    appendTradeLog({
-      title: type === 'buy' ? '購入成功' : '売却成功',
-      detail: data.message
-    });
-    tradeResult.innerHTML = `<div class="text-success">${data.message}</div>`;
-    tradeAmountInput.value = '';
-    updateTradeSummary();
-  } catch (error) {
-    appendTradeLog({
-      title: '取引エラー',
-      detail: error.message
-    });
-    tradeResult.innerHTML = `<div class="text-danger">${error.message}</div>`;
-  } finally {
-    executeTradeBtn.disabled = false;
-  }
+    executeTradeBtn.disabled = true;
+    tradeResult.innerHTML = '<div class="text-muted">取引実行中...</div>';
+    try {
+        const response = await fetch('/api/token-order', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token: authToken, type, amount })
+        });
+
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+            throw new Error(data.error || '取引に失敗しました。');
+        }
+
+        lastBalance = data;
+        renderBalance(data);
+        appendTradeLog({
+            title: type === 'buy' ? '購入成功' : '売却成功',
+            detail: data.message
+        });
+        tradeResult.innerHTML = `<div class="text-success">${data.message}</div>`;
+        tradeAmountInput.value = '';
+        updateTradeSummary();
+    } catch (error) {
+        appendTradeLog({
+            title: '取引エラー',
+            detail: error.message
+        });
+        tradeResult.innerHTML = `<div class="text-danger">${error.message}</div>`;
+    } finally {
+        executeTradeBtn.disabled = false;
+    }
+}
+
+function openTradeConfirmModal() {
+    if (!authToken) return;
+    const amount = Number(tradeAmountInput.value);
+    if (!amount || amount <= 0) {
+        tradeResult.innerHTML = '<div class="text-danger">数量を入力してください。</div>';
+        return;
+    }
+    if (!lastBalance) {
+        tradeResult.innerHTML = '<div class="text-danger">レート情報が取得できていません。</div>';
+        return;
+    }
+    const type = document.querySelector('input[name="tradeType"]:checked').value;
+    const estimate = getTradeEstimate(amount, type, lastBalance.rate);
+
+    if (confirmType) confirmType.textContent = type === 'buy' ? '購入' : '売却';
+    if (confirmAmount) confirmAmount.textContent = `${amount.toFixed(2)} TKUC`;
+    if (confirmEstimate) confirmEstimate.textContent = estimate;
+    if (confirmTradeTypeInput) confirmTradeTypeInput.value = type;
+
+    if (!confirmModalInstance && confirmTradeModalEl && window.bootstrap) {
+        confirmModalInstance = new bootstrap.Modal(confirmTradeModalEl);
+    }
+    if (confirmModalInstance) {
+        confirmModalInstance.show();
+    }
+}
+
+async function confirmTradeExecution() {
+    if (confirmModalInstance) {
+        confirmModalInstance.hide();
+    }
+    await executeTrade();
 }
 
 function setAlert() {
@@ -249,11 +294,14 @@ function checkAlert(currentRate) {
 
 loginBtn.addEventListener('click', login);
 logoutBtn.addEventListener('click', logout);
-executeTradeBtn.addEventListener('click', executeTrade);
+executeTradeBtn.addEventListener('click', openTradeConfirmModal);
 tradeAmountInput.addEventListener('input', updateTradeSummary);
 tradeTypeInputs.forEach(input => input.addEventListener('change', updateTradeSummary));
 setAlertBtn.addEventListener('click', setAlert);
 clearAlertBtn.addEventListener('click', clearAlert);
+if (confirmTradeBtn) {
+    confirmTradeBtn.addEventListener('click', confirmTradeExecution);
+}
 
 updateTradeSummary();
 setTradeState(false);
