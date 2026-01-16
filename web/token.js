@@ -15,9 +15,11 @@ let confirmModalInstance = null;
 let alertDirectionSelect, setAlertBtn, clearAlertBtn, alertSound;
 
 function setLoading(state, message = '') {
-  loginBtn.disabled = state;
-  loginBtn.textContent = state ? 'ログイン中...' : 'ログイン';
-  if (message) {
+  if (loginBtn) {
+    loginBtn.disabled = state;
+    loginBtn.textContent = state ? 'ログイン中...' : 'ログイン';
+  }
+  if (loginStatus && message) {
     loginStatus.textContent = message;
   }
 }
@@ -366,7 +368,12 @@ async function loginWithModal() {
     return;
   }
 
-  setLoading(true, '認証中...');
+  // モーダル内ボタンの状態変更
+  const modalLoginBtn = document.getElementById('modalLoginBtn');
+  if (modalLoginBtn) {
+    modalLoginBtn.disabled = true;
+    modalLoginBtn.textContent = '認証中...';
+  }
   try {
     const response = await fetch('/api/keys-login', {
       method: 'POST',
@@ -423,7 +430,12 @@ async function loginWithModal() {
     secretKey = null;
     loginStatus.textContent = error.message;
   } finally {
-    setLoading(false);
+    // モーダル内ボタンの状態リセット
+    const modalLoginBtn = document.getElementById('modalLoginBtn');
+    if (modalLoginBtn) {
+      modalLoginBtn.disabled = false;
+      modalLoginBtn.textContent = '認証';
+    }
   }
 }
 
