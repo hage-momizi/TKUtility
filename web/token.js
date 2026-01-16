@@ -56,8 +56,10 @@ function updateTradeSummary() {
 }
 
 function renderBalance(data) {
-  if (!data) {
-    balanceInfo.innerHTML = '<div class="text-muted">残高情報を取得できませんでした。</div>';
+  if (!data || !balanceInfo) {
+    if (balanceInfo) {
+      balanceInfo.innerHTML = '<div class="text-muted">残高情報を取得できませんでした。</div>';
+    }
     return;
   }
 
@@ -68,13 +70,15 @@ function renderBalance(data) {
     <div class="balance-line mt-2">現在レート: <strong>${rate.toFixed(2)} TKUP</strong></div>
   `;
 
-  currentRateDisplay.textContent = `${rate.toFixed(2)}`;
-  balanceTimestamp.textContent = new Date().toLocaleTimeString('ja-JP');
+  if (currentRateDisplay) currentRateDisplay.textContent = `${rate.toFixed(2)}`;
+  if (balanceTimestamp) balanceTimestamp.textContent = new Date().toLocaleTimeString('ja-JP');
 
   checkAlert(rate);
 }
 
 function appendTradeLog(entry) {
+  if (!tradeLog) return;
+
   const li = document.createElement('li');
   li.className = 'trade-log-entry';
   li.innerHTML = `
@@ -98,9 +102,12 @@ function logout() {
   accessKey = null;
   secretKey = null;
 
-  // UI切り替え: ログイン画面表示、メインコンテンツ非表示
-  document.getElementById('loginScreen').style.display = 'flex';
-  document.getElementById('mainContent').style.display = 'none';
+  // モーダルを閉じる
+  const modalEl = document.getElementById('loginModal');
+  if (modalEl && window.bootstrap) {
+    const modal = bootstrap.Modal.getInstance(modalEl);
+    if (modal) modal.hide();
+  }
 
   // ナビゲーションボタン更新
   const navLoginBtn = document.querySelector('#authButtons .btn-primary');
@@ -108,11 +115,15 @@ function logout() {
   if (navLoginBtn) navLoginBtn.style.display = 'inline-block';
   if (navLogoutBtn) navLogoutBtn.disabled = true;
 
-  balanceInfo.innerHTML = '<div class="text-muted">ログインして残高を表示</div>';
-  currentRateDisplay.textContent = '--.--';
-  balanceTimestamp.textContent = '';
-  tradeResult.textContent = '';
-  tradeSummary.textContent = '取引内容: --';
+  // 入力をリセット
+  if (keyFileInput) keyFileInput.value = '';
+  if (manualTokenInput) manualTokenInput.value = '';
+  if (loginStatus) loginStatus.textContent = '';
+  if (balanceInfo) balanceInfo.innerHTML = '<div class="text-muted">ログインして残高を表示</div>';
+  if (currentRateDisplay) currentRateDisplay.textContent = '--.--';
+  if (balanceTimestamp) balanceTimestamp.textContent = '';
+  if (tradeResult) tradeResult.textContent = '';
+  if (tradeSummary) tradeSummary.textContent = '取引内容: --';
   lastBalance = null;
   setTradeState(false);
 
@@ -157,7 +168,7 @@ async function fetchBalance() {
     updateTradeSummary();
   } catch (error) {
     console.error(error);
-    loginStatus.textContent = '残高更新中にエラーが発生しました。';
+    if (loginStatus) loginStatus.textContent = '残高更新中にエラーが発生しました。';
   }
 }
 
@@ -165,8 +176,10 @@ async function executeTrade() {
     if (!accessKey || !secretKey) return;
 
     // nullチェック
-    if (!tradeAmountInput) {
-        tradeResult.innerHTML = '<div class="text-danger">入力要素が見つかりません。</div>';
+    if (!tradeAmountInput || !tradeResult) {
+        if (tradeResult) {
+          tradeResult.innerHTML = '<div class="text-danger">入力要素が見つかりません。</div>';
+        }
         return;
     }
 
@@ -191,7 +204,7 @@ async function executeTrade() {
       .update(message)
       .digest('hex');
 
-    executeTradeBtn.disabled = true;
+    if (executeTradeBtn) executeTradeBtn.disabled = true;
     tradeResult.innerHTML = '<div class="text-muted">取引実行中...</div>';
     try {
         const response = await fetch('/api/keys-order', {
@@ -226,7 +239,7 @@ async function executeTrade() {
         });
         tradeResult.innerHTML = `<div class="text-danger">${error.message}</div>`;
     } finally {
-        executeTradeBtn.disabled = false;
+        if (executeTradeBtn) executeTradeBtn.disabled = false;
     }
 }
 
@@ -401,10 +414,6 @@ async function loginWithModal() {
       const modal = bootstrap.Modal.getInstance(modalEl);
       if (modal) modal.hide();
     }
-
-    // UI切り替え
-    document.getElementById('loginScreen').style.display = 'none';
-    document.getElementById('mainContent').style.display = 'block';
 
     // ユーザー情報表示
     const userInfoEl = document.getElementById('userInfo');
