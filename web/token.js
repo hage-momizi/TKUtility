@@ -24,6 +24,13 @@ function setLoading(state, message = '') {
   }
 }
 
+function setLogoutBtnSidebarState(disabled) {
+  const logoutBtnSidebar = document.getElementById('logoutBtnSidebar');
+  if (logoutBtnSidebar) {
+    logoutBtnSidebar.disabled = disabled;
+  }
+}
+
 function getTradeEstimate(amount, type, rate) {
     if (type === 'buy') {
         const tkupNeeded = Math.round(amount * rate * 1.03 * 100) / 100;
@@ -110,8 +117,8 @@ function logout() {
   }
 
   // ナビゲーションボタン更新
-  const navLoginBtn = document.querySelector('#authButtons .btn-primary');
-  const navLogoutBtn = document.querySelector('#authButtons .btn-outline-secondary');
+  const navLoginBtn = document.getElementById('loginBtnNav');
+  const navLogoutBtn = document.getElementById('logoutBtnNav');
   if (navLoginBtn) navLoginBtn.style.display = 'inline-block';
   if (navLogoutBtn) navLogoutBtn.disabled = true;
 
@@ -425,8 +432,8 @@ async function loginWithModal() {
     }
 
     // ナビゲーションボタン更新
-    const navLoginBtn = document.querySelector('#authButtons .btn-primary');
-    const navLogoutBtn = document.querySelector('#authButtons .btn-outline-secondary');
+    const navLoginBtn = document.getElementById('loginBtnNav');
+    const navLogoutBtn = document.getElementById('logoutBtnNav');
     if (navLoginBtn) navLoginBtn.style.display = 'none';
     if (navLogoutBtn) navLogoutBtn.disabled = false;
 
@@ -461,8 +468,8 @@ window.logout = logout;
 // DOMContentLoadedイベントで初期化
 document.addEventListener('DOMContentLoaded', function() {
   // DOM要素の取得
-  loginBtn = document.getElementById('loginBtn');
-  logoutBtn = document.getElementById('logoutBtn');
+  loginBtn = document.getElementById('loginBtnNav');
+  logoutBtn = document.getElementById('logoutBtnNav');
   loginStatus = document.getElementById('loginStatus');
   keyFileInput = document.getElementById('keyFileInput');
   manualTokenInput = document.getElementById('manualTokenInput');
