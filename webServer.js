@@ -12,7 +12,7 @@ const {
   buyTKUC,
   recordTransaction
 } = require('./modules/economyService');
-const { resolveToken, verifyApiSignature } = require('./modules/tokenService');
+const { resolveToken, resolveAccessKey, verifyApiSignature } = require('./modules/tokenService');
 const { FILES } = require('./config/constants');
 
 const newsConfigFile = path.join(__dirname, 'newsconfig.json');
@@ -199,6 +199,7 @@ function startWebServer(client) {
   });
 
   // API Keys認証 -------------------------------------------------------
+
   app.post('/api/keys-login', async (req, res) => {
     try {
       const { accessKey, secretKey } = req.body;
