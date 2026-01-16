@@ -11,26 +11,26 @@
 
     <style>
         :root {
-            --bg-primary: #F5F9FF;
-            --bg-secondary: rgba(255, 255, 255, 0.78);
-            --bg-tertiary: rgba(234, 242, 255, 0.9);
-            --card-bg: rgba(255, 255, 255, 0.75);
-            --primary-color: #7CC4FF;
-            --primary-hover: #5AA9F5;
-            --accent-cyan: #9EDBFF;
-            --accent-blue: #7CC4FF;
-            --text-primary: #1E293B;
-            --text-secondary: #64748B;
-            --text-muted: #94A3B8;
-            --up-color: #3FBFA8;
-            --up-bg: rgba(63, 191, 168, 0.12);
-            --down-color: #F08A8A;
-            --down-bg: rgba(240, 138, 138, 0.12);
-            --border-subtle: rgba(148, 163, 184, 0.25);
-            --border-medium: rgba(148, 163, 184, 0.4);
-            --shadow-sm: 0 10px 20px rgba(122, 164, 220, 0.25);
-            --shadow-md: 0 16px 30px rgba(122, 164, 220, 0.28);
-            --shadow-lg: 0 24px 44px rgba(122, 164, 220, 0.32);
+            --bg-primary: #0B0F14;
+            --bg-secondary: rgba(20, 28, 40, 0.7);
+            --bg-tertiary: rgba(26, 36, 52, 0.85);
+            --card-bg: rgba(20, 28, 40, 0.65);
+            --primary-color: #8AE0C7;
+            --primary-hover: #6FCFB4;
+            --accent-cyan: #8AE0C7;
+            --accent-blue: #D9B26B;
+            --text-primary: #E6EDF5;
+            --text-secondary: #9AA6B2;
+            --text-muted: #6F7A86;
+            --up-color: #8AE0C7;
+            --up-bg: rgba(138, 224, 199, 0.12);
+            --down-color: #D78882;
+            --down-bg: rgba(215, 136, 130, 0.12);
+            --border-subtle: rgba(255, 255, 255, 0.08);
+            --border-medium: rgba(255, 255, 255, 0.16);
+            --shadow-sm: 0 10px 22px rgba(5, 10, 18, 0.55);
+            --shadow-md: 0 18px 36px rgba(5, 10, 18, 0.6);
+            --shadow-lg: 0 28px 54px rgba(5, 10, 18, 0.65);
         }
 
         * {
@@ -38,9 +38,9 @@
         }
 
         body {
-            background: radial-gradient(circle at top, rgba(124, 196, 255, 0.35), transparent 60%),
-                radial-gradient(circle at 20% 20%, rgba(158, 219, 255, 0.4), transparent 50%),
-                linear-gradient(160deg, #F5F9FF 0%, #EAF2FF 60%, #F5F9FF 100%);
+            background: radial-gradient(circle at top, rgba(138, 224, 199, 0.08), transparent 55%),
+                radial-gradient(circle at 20% 20%, rgba(217, 178, 107, 0.08), transparent 45%),
+                linear-gradient(160deg, #0B0F14 0%, #111826 60%, #0B0F14 100%);
             color: var(--text-primary);
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
             margin: 0;
@@ -51,7 +51,7 @@
 
         /* Navbar Redesign */
         .navbar {
-            background: rgba(255, 255, 255, 0.9);
+            background: rgba(11, 15, 20, 0.85);
             border-bottom: 1px solid var(--border-subtle);
             padding: 0.75rem 0;
             backdrop-filter: blur(18px);
@@ -141,7 +141,7 @@
             left: 0;
             right: 0;
             height: 1px;
-            background: rgba(124, 196, 255, 0.35);
+            background: rgba(138, 224, 199, 0.35);
         }
 
         .summary-card:hover {
@@ -202,7 +202,7 @@
         .token-card .card-header {
             padding: 0.9rem 1.15rem;
             border-bottom: 1px solid var(--border-subtle);
-            background: rgba(234, 242, 255, 0.7);
+            background: rgba(26, 36, 52, 0.85);
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -226,7 +226,7 @@
         }
 
         .token-card .badge {
-            background: rgba(124, 196, 255, 0.18);
+            background: rgba(138, 224, 199, 0.12);
             border: 1px solid var(--border-subtle);
             color: var(--text-secondary);
             font-weight: 600;
@@ -252,7 +252,7 @@
         }
 
         .btn-group-custom {
-            background: rgba(234, 242, 255, 0.75);
+            background: rgba(15, 22, 32, 0.7);
             padding: 0.2rem;
             border-radius: 10px;
             display: inline-flex;
@@ -275,13 +275,13 @@
 
         .btn-custom:hover {
             color: var(--text-primary);
-            background: rgba(124, 196, 255, 0.2);
+            background: rgba(138, 224, 199, 0.12);
         }
 
         .btn-custom.active {
-            background: rgba(124, 196, 255, 0.35);
+            background: rgba(138, 224, 199, 0.18);
             color: var(--text-primary);
-            box-shadow: 0 4px 12px rgba(124, 196, 255, 0.35);
+            box-shadow: 0 4px 12px rgba(138, 224, 199, 0.25);
         }
 
         .btn-custom i {
@@ -320,22 +320,22 @@
         }
 
         .ma7-indicator {
-            color: #3FBFA8;
-            border-color: rgba(63, 191, 168, 0.4);
-            background: rgba(63, 191, 168, 0.12);
+            color: var(--primary-color);
+            border-color: rgba(138, 224, 199, 0.4);
+            background: rgba(138, 224, 199, 0.12);
         }
 
         .ma25-indicator {
-            color: #F5C36A;
-            border-color: rgba(245, 195, 106, 0.4);
-            background: rgba(245, 195, 106, 0.12);
+            color: var(--accent-blue);
+            border-color: rgba(217, 178, 107, 0.4);
+            background: rgba(217, 178, 107, 0.12);
         }
 
         /* Live Badge */
         .badge-live {
-            background: rgba(124, 196, 255, 0.2);
+            background: rgba(138, 224, 199, 0.12);
             color: var(--primary-color);
-            border: 1px solid rgba(124, 196, 255, 0.35);
+            border: 1px solid rgba(138, 224, 199, 0.35);
             font-size: 0.7rem;
             padding: 0.32rem 0.6rem;
             border-radius: 8px;
@@ -366,7 +366,7 @@
         }
 
         .chart-wrapper canvas {
-            filter: drop-shadow(0 0 4px rgba(124, 196, 255, 0.45));
+            filter: drop-shadow(0 0 4px rgba(138, 224, 199, 0.35));
         }
 
         .chart-overlay {
@@ -380,7 +380,7 @@
         }
 
         .confirm-summary {
-            background: rgba(234, 242, 255, 0.75);
+            background: rgba(18, 26, 38, 0.75);
             border: 1px solid var(--border-subtle);
             border-radius: 12px;
             padding: 0.75rem;
@@ -393,35 +393,35 @@
 
         .btn-outline-success,
         .btn-outline-danger {
-            background: rgba(255, 255, 255, 0.75);
+            background: rgba(15, 22, 32, 0.7);
         }
 
         .btn-outline-success {
-            border-color: rgba(63, 191, 168, 0.45);
-            color: #1E293B;
+            border-color: rgba(138, 224, 199, 0.45);
+            color: var(--text-primary);
         }
 
         .btn-outline-success:hover {
-            background: rgba(63, 191, 168, 0.18);
-            border-color: rgba(63, 191, 168, 0.55);
-            color: #1E293B;
+            background: rgba(138, 224, 199, 0.18);
+            border-color: rgba(138, 224, 199, 0.55);
+            color: var(--text-primary);
         }
 
         .btn-outline-danger {
-            border-color: rgba(240, 138, 138, 0.45);
-            color: #1E293B;
+            border-color: rgba(215, 136, 130, 0.45);
+            color: var(--text-primary);
         }
 
         .btn-outline-danger:hover {
-            background: rgba(240, 138, 138, 0.18);
-            border-color: rgba(240, 138, 138, 0.6);
-            color: #1E293B;
+            background: rgba(215, 136, 130, 0.18);
+            border-color: rgba(215, 136, 130, 0.6);
+            color: var(--text-primary);
         }
 
         .chart-badge {
             padding: 0.35rem 0.65rem;
             border-radius: 10px;
-            background: rgba(255, 255, 255, 0.75);
+            background: rgba(18, 26, 38, 0.8);
             border: 1px solid var(--border-subtle);
             font-size: 0.75rem;
             font-weight: 600;
@@ -435,12 +435,12 @@
         }
 
         .chart-badge.up {
-            border-color: rgba(63, 191, 168, 0.4);
+            border-color: rgba(138, 224, 199, 0.4);
             color: var(--up-color);
         }
 
         .chart-badge.down {
-            border-color: rgba(240, 138, 138, 0.4);
+            border-color: rgba(215, 136, 130, 0.4);
             color: var(--down-color);
         }
 
@@ -462,7 +462,7 @@
         }
 
         .news-item:hover {
-            background: rgba(234, 242, 255, 0.8);
+            background: rgba(26, 36, 52, 0.65);
             border-color: var(--border-subtle);
         }
 
@@ -481,7 +481,7 @@
         }
 
         .news-badge.info {
-            background: rgba(234, 242, 255, 0.9);
+            background: rgba(26, 36, 52, 0.85);
             color: var(--text-secondary);
             border: 1px solid var(--border-subtle);
         }
@@ -540,7 +540,7 @@
 
         .form-control,
         .form-select {
-            background: rgba(255, 255, 255, 0.9);
+            background: rgba(12, 18, 26, 0.8);
             border: 1px solid var(--border-subtle);
             color: var(--text-primary);
             border-radius: 12px;
@@ -548,9 +548,9 @@
 
         .form-control:focus,
         .form-select:focus {
-            background: rgba(255, 255, 255, 0.95);
+            background: rgba(12, 18, 26, 0.9);
             border-color: var(--primary-color);
-            box-shadow: 0 0 0 0.18rem rgba(124, 196, 255, 0.25);
+            box-shadow: 0 0 0 0.18rem rgba(138, 224, 199, 0.2);
             color: var(--text-primary);
         }
 
@@ -560,35 +560,36 @@
         }
 
         .btn-primary {
-            background: rgba(124, 196, 255, 0.9);
-            border-color: rgba(124, 196, 255, 0.8);
+            background: rgba(138, 224, 199, 0.9);
+            border-color: rgba(138, 224, 199, 0.8);
         }
 
         .btn-primary:hover {
-            background: rgba(90, 169, 245, 0.95);
-            border-color: rgba(90, 169, 245, 0.9);
+            background: rgba(111, 207, 180, 0.95);
+            border-color: rgba(111, 207, 180, 0.9);
         }
 
         .btn-outline-secondary {
             color: var(--text-secondary);
             border-color: var(--border-subtle);
+            background: rgba(12, 18, 26, 0.65);
         }
 
         .btn-outline-secondary:hover {
-            background: rgba(234, 242, 255, 0.8);
+            background: rgba(26, 36, 52, 0.8);
             color: var(--text-primary);
             border-color: var(--border-medium);
         }
 
         .btn-info {
-            background: rgba(158, 219, 255, 0.85);
-            border-color: rgba(158, 219, 255, 0.75);
+            background: rgba(217, 178, 107, 0.9);
+            border-color: rgba(217, 178, 107, 0.8);
             color: #1E293B;
         }
 
         .btn-info:hover {
-            background: rgba(124, 196, 255, 0.95);
-            border-color: rgba(124, 196, 255, 0.9);
+            background: rgba(205, 165, 92, 0.95);
+            border-color: rgba(205, 165, 92, 0.9);
             color: #1E293B;
         }
 
@@ -598,14 +599,14 @@
 
         .trade-confirm-modal .modal-content {
             border-radius: 18px;
-            border: 1px solid rgba(124, 196, 255, 0.35);
-            background: rgba(255, 255, 255, 0.95);
+            border: 1px solid rgba(138, 224, 199, 0.2);
+            background: rgba(18, 26, 38, 0.95);
             box-shadow: var(--shadow-lg);
         }
 
         .trade-confirm-modal .modal-header {
             border-bottom: 1px solid var(--border-subtle);
-            background: rgba(234, 242, 255, 0.85);
+            background: rgba(26, 36, 52, 0.85);
         }
 
         .trade-confirm-modal .modal-footer {
@@ -619,16 +620,16 @@
         }
 
         ::-webkit-scrollbar-track {
-            background: rgba(234, 242, 255, 0.8);
+            background: rgba(15, 22, 32, 0.8);
         }
 
         ::-webkit-scrollbar-thumb {
-            background: rgba(124, 196, 255, 0.45);
+            background: rgba(138, 224, 199, 0.35);
             border-radius: 4px;
         }
 
         ::-webkit-scrollbar-thumb:hover {
-            background: rgba(124, 196, 255, 0.7);
+            background: rgba(138, 224, 199, 0.6);
         }
 
         /* Responsive Design */
@@ -776,7 +777,7 @@
                     <span class="d-none d-sm-inline">2秒自動更新</span>
                     <span class="d-sm-none">LIVE</span>
                 </span>
-                <a href="#token-console" class="btn btn-outline-primary btn-sm">
+                <a href="#token-console" class="btn btn-outline-secondary btn-sm">
                     <i class="fa-solid fa-right-to-bracket me-1"></i>トークンコンソール
                 </a>
             </div>
@@ -1057,7 +1058,7 @@
                     volumeData = data.history.map(h => ({
                         time: Math.floor(h.timestamp / 1000),
                         value: Math.random() * 1000 + 500,
-                        color: Math.random() > 0.5 ? 'rgba(63, 191, 168, 0.45)' : 'rgba(240, 138, 138, 0.4)'
+                        color: Math.random() > 0.5 ? 'rgba(138, 224, 199, 0.45)' : 'rgba(215, 136, 130, 0.4)'
                     }));
                     return { candlestickData, rateHistory, volumeData };
                 }
@@ -1090,7 +1091,7 @@
                 volumeData.push({
                     time,
                     value: Math.random() * 1000 + 500,
-                    color: Math.random() > 0.5 ? 'rgba(63, 191, 168, 0.45)' : 'rgba(240, 138, 138, 0.4)'
+                    color: Math.random() > 0.5 ? 'rgba(138, 224, 199, 0.45)' : 'rgba(215, 136, 130, 0.4)'
                 });
             }
             currentRate = candlestickData[candlestickData.length - 1].close;
@@ -1131,32 +1132,32 @@
                 autoSize: true,
                 layout: {
                     background: { color: 'transparent' },
-                    textColor: '#64748B',
+                    textColor: '#9AA6B2',
                     fontFamily: 'Inter'
                 },
                 grid: {
-                    vertLines: { color: 'rgba(30, 41, 59, 0.08)' },
-                    horzLines: { color: 'rgba(30, 41, 59, 0.08)' }
+                    vertLines: { color: 'rgba(255, 255, 255, 0.06)' },
+                    horzLines: { color: 'rgba(255, 255, 255, 0.06)' }
                 },
                 crosshair: {
                     mode: LightweightCharts.CrosshairMode.Normal,
                     vertLine: {
-                        color: 'rgba(124, 196, 255, 0.35)',
+                        color: 'rgba(138, 224, 199, 0.35)',
                         width: 1,
                         style: LightweightCharts.LineStyle.Dashed
                     },
                     horzLine: {
-                        color: 'rgba(124, 196, 255, 0.35)',
+                        color: 'rgba(138, 224, 199, 0.35)',
                         width: 1,
                         style: LightweightCharts.LineStyle.Dashed
                     }
                 },
                 rightPriceScale: {
-                    borderColor: 'rgba(148, 163, 184, 0.35)',
-                    textColor: '#64748B'
+                    borderColor: 'rgba(255, 255, 255, 0.18)',
+                    textColor: '#9AA6B2'
                 },
                 timeScale: {
-                    borderColor: 'rgba(148, 163, 184, 0.35)',
+                    borderColor: 'rgba(255, 255, 255, 0.18)',
                     timeVisible: true,
                     secondsVisible: false
                 },
@@ -1173,7 +1174,7 @@
 
             const data = await fetchInitialData();
             mainSeries = chart.addLineSeries({
-                color: '#5AA9F5',
+                color: '#8AE0C7',
                 lineWidth: 2,
                 priceFormat: { type: 'price', precision: 2, minMove: 0.01 },
                 crosshairMarkerVisible: true,
@@ -1195,7 +1196,7 @@
             const ma25Data = calculateMA(rateHistory, 25);
 
             ma7Series = chart.addLineSeries({
-                color: 'rgba(63, 191, 168, 0.85)',
+                color: 'rgba(138, 224, 199, 0.85)',
                 lineWidth: 1.4,
                 priceFormat: { type: 'price', precision: 2, minMove: 0.01 },
                 crosshairMarkerVisible: false,
@@ -1206,7 +1207,7 @@
             ma7Series.setData(ma7Data);
 
             ma25Series = chart.addLineSeries({
-                color: 'rgba(245, 195, 106, 0.85)',
+                color: 'rgba(217, 178, 107, 0.85)',
                 lineWidth: 1.4,
                 priceFormat: { type: 'price', precision: 2, minMove: 0.01 },
                 crosshairMarkerVisible: false,
@@ -1227,17 +1228,17 @@
 
             if (type === 'candlestick') {
                 mainSeries = chart.addCandlestickSeries({
-                    upColor: '#3FBFA8',
-                    downColor: '#F08A8A',
+                    upColor: '#8AE0C7',
+                    downColor: '#D78882',
                     borderVisible: false,
-                    wickUpColor: '#3FBFA8',
-                    wickDownColor: '#F08A8A',
+                    wickUpColor: '#8AE0C7',
+                    wickDownColor: '#D78882',
                     priceFormat: { type: 'price', precision: 2, minMove: 0.01 }
                 });
                 mainSeries.setData(candlestickData);
             } else if (type === 'line') {
                 mainSeries = chart.addLineSeries({
-                    color: '#5AA9F5',
+                    color: '#8AE0C7',
                     lineWidth: 2,
                     priceFormat: { type: 'price', precision: 2, minMove: 0.01 },
                     crosshairMarkerVisible: true,
@@ -1247,9 +1248,9 @@
                 mainSeries.setData(rateHistory);
             } else if (type === 'area') {
                 mainSeries = chart.addAreaSeries({
-                    topColor: 'rgba(124, 196, 255, 0.35)',
-                    bottomColor: 'rgba(124, 196, 255, 0.05)',
-                    lineColor: '#5AA9F5',
+                    topColor: 'rgba(138, 224, 199, 0.28)',
+                    bottomColor: 'rgba(138, 224, 199, 0.04)',
+                    lineColor: '#8AE0C7',
                     lineWidth: 2,
                     priceFormat: { type: 'price', precision: 2, minMove: 0.01 },
                     crosshairMarkerVisible: true,
@@ -1290,7 +1291,7 @@
                     const newVolume = {
                         time: now,
                         value: Math.random() * 1000 + 500,
-                        color: currentRate >= prevRate ? 'rgba(63, 191, 168, 0.45)' : 'rgba(240, 138, 138, 0.4)'
+                        color: currentRate >= prevRate ? 'rgba(138, 224, 199, 0.45)' : 'rgba(215, 136, 130, 0.4)'
                     };
                     volumeData.push(newVolume);
                     if (volumeData.length > 100) volumeData.shift();
