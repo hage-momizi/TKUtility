@@ -123,6 +123,7 @@ async function login(isAutoLogin = false) {
     authToken = token;
     // トークンをローカルストレージに保存
     localStorage.setItem('tkuc_token', authToken);
+    console.log('Token saved to localStorage:', authToken);
     if (!isAutoLogin) {
       loginStatus.textContent = `ログイン成功: ${data.user.displayName || data.user.username}`;
     } else {
@@ -330,8 +331,12 @@ setTradeState(false);
 // ページロード時にローカルストレージからトークンを復元して自動ログイン
 document.addEventListener('DOMContentLoaded', async () => {
   const savedToken = localStorage.getItem('tkuc_token');
+  console.log('DOMContentLoaded: savedToken =', savedToken);
   if (savedToken) {
     tokenInput.value = savedToken;
+    console.log('Attempting auto-login with token:', savedToken);
     await login(true);
+  } else {
+    console.log('No saved token found');
   }
 });
