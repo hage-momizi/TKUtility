@@ -237,6 +237,9 @@ let tickSellVolume = 0;
 // ===== パニック係数 =====
 let panic = 0;
 
+// ===== インパルス（運動量）層 =====
+let momentum = 0;
+
 function addTickBuy(amount) {
   tickBuyVolume += amount;
 }
@@ -358,8 +361,8 @@ async function updateTKUCRate() {
       newRate: newRate.toFixed(2)
     });
 
-    // レート更新
-    rateData.currentRate = Math.round(newRate * 100) / 100; // 小数点2桁
+    // レート更新（絶対下限1 TKUP設定）
+    rateData.currentRate = Math.max(1, Math.round(newRate * 100) / 100); // 小数点2桁、最低1 TKUP
     rateData.lastUpdate = Date.now();
     rateData.history = rateData.history || [];
     rateData.history.push({ timestamp: Date.now(), rate: rateData.currentRate });
@@ -371,6 +374,10 @@ async function updateTKUCRate() {
 
     saveJSON(FILES.TKUC_RATE, rateData);
     console.log(`✅ TKUCレート更新成功: ${currentRate} → ${rateData.currentRate} TKUP (+${changePercent.toFixed(2)}%)`);
+
+    // フェア価格を追従型に更新
+    rateData.fairPrice = rateData.fairPrice * 0.995 + rateData.currentRate * 0.005;
+    saveJSON(FILES.TKUC_RATE, rateData);
 
     // tickカウンタをリセット
     resetTickVolume();
@@ -1479,36 +1486,44 @@ function calculateSmartRateChange(marketData, chatActivity, top3Ratio, recentTra
   let change = 0;
 
   // =========================
-  // ① 需給インパクト（メイン）- tickベース優先
+  // ① 需給インパクト（メイン）- tickベース優先 + インパルス層
   // =========================
   if (tickVolume > 0) {
     const volumeScale = Math.min(3, Math.sqrt(tickVolume));
-    change += tickNetDemand * DEMAND_IMPACT * volumeScale;
+    const impulse = tickNetDemand * DEMAND_IMPACT * volumeScale;
+
+    // クジラ検出
+    let finalImpulse = impulse;
+    if (tickVolume > 50) {
+      finalImpulse *= 1.5;
+    }
+
+    // 同方向連続tickブースト
+    if (Math.sign(tickNetDemand) === Math.sign(lastRateChange)) {
+      finalImpulse *= 1.2;
+    }
+
+    // インパルスを運動量に蓄積
+    momentum += finalImpulse;
   } else if (recentTrades > 0) {
     // tickがない場合は従来の差分を使用
     change += demandDelta * DEMAND_IMPACT;
   }
 
-  // =========================
-  // 🔥 拡張機能: クジラ検出
-  // =========================
-  if (tickVolume > 50) {
-    change *= 1.5;
-  }
+  // 運動量減衰 + 上限設定（長期安定性保険）
+  momentum *= 0.85;
+  momentum = Math.max(-0.1, Math.min(0.1, momentum));
 
   // =========================
-  // 🔥 拡張機能: 同方向連続tickブースト
-  // =========================
-  if (Math.sign(tickNetDemand) === Math.sign(lastRateChange)) {
-    change *= 1.2;
-  }
-
-  // =========================
-  // 🔥 拡張機能: パニック係数
+  // 🔥 拡張機能: パニック係数（運動量に混ぜる）
   // =========================
   panic += Math.max(0, -tickNetDemand) * 0.1;
-  change -= panic * 0.002;
+  panic = Math.min(panic, 50); // パニック上限設定
+  momentum -= panic * 0.001;
   panic *= 0.9;
+
+  // 運動量をchangeに加算
+  change += momentum;
 
   // =========================
   // ② 平常時ノイズ（小さく）
@@ -1534,10 +1549,11 @@ function calculateSmartRateChange(marketData, chatActivity, top3Ratio, recentTra
   }
 
   // =========================
-  // ⑤ 暴走防止リミッター（需要連動）
+  // ⑤ 暴走防止リミッター（tickVolumeベース）
   // =========================
+  const volumeFactor = tickVolume > 0 ? Math.sqrt(tickVolume) : 1;
   const baseMaxMove = 0.005;
-  const dynamicMaxMove = baseMaxMove * (1 + Math.abs(demandDelta) / 20);
+  const dynamicMaxMove = baseMaxMove * volumeFactor;
   const MAX_MOVE = Math.min(0.05, dynamicMaxMove);
   change = Math.max(-MAX_MOVE, Math.min(MAX_MOVE, change));
 
