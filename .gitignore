@@ -21,3 +21,7 @@ orderBook.json
 privateTokens.json
 DATA_FORMAT.md
 ECONOMY_SPEC.txt
+package.json
+package-lock.json
+aiConfig.json
+
