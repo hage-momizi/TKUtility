@@ -227,6 +227,9 @@ function getDynamicUpperLimit(marketData) {
 // トレンド慣性用変数
 let lastRateChange = 0;
 
+// 市場感情（Bull/Bear）システム
+let marketSentiment = 0; // -1.0 (Bear) to +1.0 (Bull)
+
 // マーケット状態管理
 let marketState = {
   regime: 1.0,           // 現在の機嫌倍率
@@ -1428,6 +1431,22 @@ function calculateSmartRateChange(marketData, chatActivity, top3Ratio, recentTra
   const rawDemand = netDemand * 0.005;
   const effectiveDemand = recentTrades === 0 ? 0 : rawDemand;
 
+  // 🎲 1. ランダムノイズの強化（仮想通貨風）
+  let noise = (Math.random() - 0.5) * 0.3; // ±0.15%
+  if (recentTrades > 0) noise *= 2; // 取引中は強化
+
+  // 🧠 2. 市場感情更新（Bull/Bear）
+  if (netDemand > 10) {
+    marketSentiment = Math.min(1.0, marketSentiment + 0.1); // 買い圧力でBull
+  } else if (netDemand < -10) {
+    marketSentiment = Math.max(-1.0, marketSentiment - 0.1); // 売り圧力でBear
+  } else {
+    marketSentiment *= 0.95; // 徐々に中立に
+  }
+
+  // 🎯 3. 感情によるボラティリティ
+  const volatility = 1.0 + Math.abs(marketSentiment) * 0.5;
+
   let change;
 
   if (effectiveDemand === 0) {
@@ -1445,6 +1464,26 @@ function calculateSmartRateChange(marketData, chatActivity, top3Ratio, recentTra
   const GRAVITY = 0.02;
   change -= deviation * GRAVITY;
 
+  // 🎉 4. チャット盛り上がりによるランダム変動
+  if (chatActivity > 50) {
+    const chatBoost = (Math.random() - 0.5) * chatActivity * 0.001;
+    change += chatBoost;
+  }
+
+  // 🔄 5. トレンド反転確率（5%）
+  if (Math.random() < 0.05) {
+    change *= -0.3; // 弱い逆転
+  }
+
+  // 📰 6. ニュースイベント風ランダムイベント（1%）
+  if (Math.random() < 0.01) {
+    const eventImpact = (Math.random() - 0.5) * 2.0; // ±1%
+    change += eventImpact;
+  }
+
+  // ノイズとボラティリティを適用
+  change = (change + noise) * volatility;
+
   // 減衰強化
   change *= 0.85;
 
@@ -1454,8 +1493,14 @@ function calculateSmartRateChange(marketData, chatActivity, top3Ratio, recentTra
 
   change = Math.max(-3, Math.min(3, change));
 
+  // アイドル時に微妙なノイズを追加
+  if (recentTrades === 0 && Math.abs(change) < 0.005) {
+    const idleNoise = (Math.random() - 0.5) * 0.01; // ±0.005%
+    change += idleNoise;
+  }
+
   // 詳細ログ出力
-  console.log(`📊 詳細: currentRate=${currentRate.toFixed(2)}, fairPrice=${fairPrice.toFixed(2)}, deviation=${(deviation*100).toFixed(2)}%, change=${change.toFixed(4)}, lastRateChange=${lastRateChange.toFixed(4)}`);
+  console.log(`📊 詳細: currentRate=${currentRate.toFixed(2)}, fairPrice=${fairPrice.toFixed(2)}, deviation=${(deviation*100).toFixed(2)}%, sentiment=${marketSentiment.toFixed(2)}, noise=${noise.toFixed(4)}, change=${change.toFixed(4)}, lastRateChange=${lastRateChange.toFixed(4)}`);
 
   lastRateChange = change;
   return change;

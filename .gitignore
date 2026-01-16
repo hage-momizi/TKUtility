@@ -15,3 +15,9 @@ aichat.json
 aiuser.json
 botChannelConfig.json
 tkucRate.json
+userBalances.json
+transactionHistory.json
+orderBook.json
+privateTokens.json
+DATA_FORMAT.md
+ECONOMY_SPEC.txt
