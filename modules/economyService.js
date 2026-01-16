@@ -375,8 +375,8 @@ async function updateTKUCRate() {
     saveJSON(FILES.TKUC_RATE, rateData);
     console.log(`✅ TKUCレート更新成功: ${currentRate} → ${rateData.currentRate} TKUP (+${changePercent.toFixed(2)}%)`);
 
-    // フェア価格を追従型に更新
-    rateData.fairPrice = rateData.fairPrice * 0.995 + rateData.currentRate * 0.005;
+    // フェア価格を追従型に更新（強化）
+    rateData.fairPrice = rateData.fairPrice * 0.95 + rateData.currentRate * 0.05;
     saveJSON(FILES.TKUC_RATE, rateData);
 
     // tickカウンタをリセット
@@ -1533,10 +1533,16 @@ function calculateSmartRateChange(marketData, chatActivity, top3Ratio, recentTra
   change += (Math.random() - 0.5) * NOISE * noiseStrength;
 
   // =========================
-  // ③ 平均回帰（フェア価格に戻す力）- 弱く
+  // ③ 平均回帰（フェア価格に戻す力）- 賢く制御
   // =========================
-  const REVERT = 0.005; // 弱いブレーキに変更
-  change -= deviation * REVERT;
+  const absDev = Math.abs(deviation);
+  if (tickVolume === 0) {
+    change -= deviation * 0.002; // 出来高ゼロ時は弱く適用
+  } else if (absDev < 0.2) {
+    change -= deviation * 0.002; // 小さい乖離はほぼ無視
+  } else {
+    change -= deviation * 0.01;  // 大きい乖離だけ強制修正
+  }
 
   // =========================
   // ④ トレンド慣性（ごく弱く）- 減衰付き
