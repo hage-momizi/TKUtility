@@ -1,33 +1,39 @@
 let authToken = null;
-let accessKey = null;
-let secretKey = null;
 let balancePoller = null;
 let lastBalance = null;
 let alertConfig = null;
 
-let loginBtn, logoutBtn, loginStatus, keyFileInput, manualTokenInput;
-let balanceInfo, balanceTimestamp, currentRateDisplay;
-let tradeSummary, tradeResult, tradeLog;
-let executeTradeBtn, tradeAmountInput, tradeTypeInputs;
-let alertRateInput, confirmTradeModalEl, confirmTradeBtn;
-let confirmType, confirmAmount, confirmEstimate, confirmTradeTypeInput;
+const tokenInput = document.getElementById('tokenInput');
+const loginBtn = document.getElementById('loginBtn');
+const logoutBtn = document.getElementById('logoutBtn');
+const loginStatus = document.getElementById('loginStatus');
+const balanceInfo = document.getElementById('balanceInfo');
+const balanceTimestamp = document.getElementById('balanceTimestamp');
+const currentRateDisplay = document.getElementById('currentRateDisplay');
+const tradeSummary = document.getElementById('tradeSummary');
+const tradeResult = document.getElementById('tradeResult');
+const tradeLog = document.getElementById('tradeLog');
+const executeTradeBtn = document.getElementById('executeTradeBtn');
+const tradeAmountInput = document.getElementById('tradeAmount');
+const tradeTypeInputs = document.querySelectorAll('input[name="tradeType"]');
+const alertRateInput = document.getElementById('alertRate');
+const confirmTradeModalEl = document.getElementById('tradeConfirmModal');
+const confirmTradeBtn = document.getElementById('confirmTradeBtn');
+const confirmType = document.getElementById('confirmType');
+const confirmAmount = document.getElementById('confirmAmount');
+const confirmEstimate = document.getElementById('confirmEstimate');
+const confirmTradeTypeInput = document.getElementById('confirmTradeType');
 let confirmModalInstance = null;
-let alertDirectionSelect, setAlertBtn, clearAlertBtn, alertSound;
+const alertDirectionSelect = document.getElementById('alertDirection');
+const setAlertBtn = document.getElementById('setAlertBtn');
+const clearAlertBtn = document.getElementById('clearAlertBtn');
+const alertSound = document.getElementById('alertSound');
 
 function setLoading(state, message = '') {
-  if (loginBtn) {
-    loginBtn.disabled = state;
-    loginBtn.textContent = state ? 'ログイン中...' : 'ログイン';
-  }
-  if (loginStatus && message) {
+  loginBtn.disabled = state;
+  loginBtn.textContent = state ? 'ログイン中...' : 'ログイン';
+  if (message) {
     loginStatus.textContent = message;
-  }
-}
-
-function setLogoutBtnSidebarState(disabled) {
-  const logoutBtnSidebar = document.getElementById('logoutBtnSidebar');
-  if (logoutBtnSidebar) {
-    logoutBtnSidebar.disabled = disabled;
   }
 }
 
@@ -43,16 +49,8 @@ function getTradeEstimate(amount, type, rate) {
 }
 
 function updateTradeSummary() {
-    if (!tradeAmountInput || !tradeSummary) return;
-
     const amount = Number(tradeAmountInput.value) || 0;
-    const tradeTypeInput = document.querySelector('input[name="tradeType"]:checked');
-    if (!tradeTypeInput) {
-        tradeSummary.textContent = '取引内容: --';
-        return;
-    }
-
-    const type = tradeTypeInput.value;
+    const type = document.querySelector('input[name="tradeType"]:checked').value;
     if (!lastBalance) {
         tradeSummary.textContent = '取引内容: --';
         return;
@@ -63,10 +61,8 @@ function updateTradeSummary() {
 }
 
 function renderBalance(data) {
-  if (!data || !balanceInfo) {
-    if (balanceInfo) {
-      balanceInfo.innerHTML = '<div class="text-muted">残高情報を取得できませんでした。</div>';
-    }
+  if (!data) {
+    balanceInfo.innerHTML = '<div class="text-muted">残高情報を取得できませんでした。</div>';
     return;
   }
 
@@ -77,15 +73,13 @@ function renderBalance(data) {
     <div class="balance-line mt-2">現在レート: <strong>${rate.toFixed(2)} TKUP</strong></div>
   `;
 
-  if (currentRateDisplay) currentRateDisplay.textContent = `${rate.toFixed(2)}`;
-  if (balanceTimestamp) balanceTimestamp.textContent = new Date().toLocaleTimeString('ja-JP');
+  currentRateDisplay.textContent = `${rate.toFixed(2)}`;
+  balanceTimestamp.textContent = new Date().toLocaleTimeString('ja-JP');
 
   checkAlert(rate);
 }
 
 function appendTradeLog(entry) {
-  if (!tradeLog) return;
-
   const li = document.createElement('li');
   li.className = 'trade-log-entry';
   li.innerHTML = `
@@ -96,56 +90,66 @@ function appendTradeLog(entry) {
   tradeLog.prepend(li);
 }
 
-function setTradeState(loggedIn) {
-  if (executeTradeBtn) {
-    executeTradeBtn.disabled = false;
-    if (loggedIn) {
-      executeTradeBtn.onclick = openTradeConfirmModal;
-    } else {
-      executeTradeBtn.onclick = showLoginModal;
-    }
-  }
-  if (tradeAmountInput) tradeAmountInput.disabled = !loggedIn;
-  if (tradeTypeInputs) tradeTypeInputs.forEach(input => input.disabled = !loggedIn);
+function setTradeState(enabled) {
+  executeTradeBtn.disabled = !enabled;
+  tradeAmountInput.disabled = !enabled;
+  tradeTypeInputs.forEach(input => input.disabled = !enabled);
 }
 
-// 古いlogin関数は削除 - loginWithModal関数を使用
+async function login() {
+  const token = (tokenInput.value || '').trim();
+  if (!token) {
+    loginStatus.textContent = 'トークンを入力してください。';
+    return;
+  }
+
+  setLoading(true, '認証中...');
+  try {
+    const response = await fetch('/api/token-login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token })
+    });
+
+    if (!response.ok) {
+      throw new Error((await response.json()).error || 'ログインに失敗しました。');
+    }
+
+    const data = await response.json();
+    authToken = token;
+    loginStatus.textContent = `ログイン成功: ${data.user.displayName || data.user.username}`;
+    loginBtn.disabled = true;
+    logoutBtn.disabled = false;
+    tokenInput.disabled = true;
+    lastBalance = data;
+    renderBalance(data);
+    setTradeState(true);
+    startPolling();
+  } catch (error) {
+    authToken = null;
+    loginStatus.textContent = error.message;
+    balanceInfo.innerHTML = '<div class="text-danger">認証に失敗しました。</div>';
+    setTradeState(false);
+  } finally {
+    setLoading(false);
+  }
+}
 
 function logout() {
   stopPolling();
-  accessKey = null;
-  secretKey = null;
-
-  // モーダルを閉じる
-  const modalEl = document.getElementById('loginModal');
-  if (modalEl && window.Bootstrap) {
-    const modal = window.Bootstrap.Modal.getInstance(modalEl);
-    if (modal) modal.hide();
-  }
-
-  // ナビゲーションボタン更新
-  const navLoginBtn = document.getElementById('loginBtnNav');
-  const navLogoutBtn = document.getElementById('logoutBtnNav');
-  if (navLoginBtn) navLoginBtn.style.display = 'inline-block';
-  if (navLogoutBtn) navLogoutBtn.disabled = true;
-
-  // 入力をリセット
-  if (keyFileInput) keyFileInput.value = '';
-  if (manualTokenInput) manualTokenInput.value = '';
-  if (loginStatus) loginStatus.textContent = '';
-  if (balanceInfo) balanceInfo.innerHTML = '<div class="text-muted">ログインして残高を表示</div>';
-  if (currentRateDisplay) currentRateDisplay.textContent = '--.--';
-  if (balanceTimestamp) balanceTimestamp.textContent = '';
-  if (tradeResult) tradeResult.textContent = '';
-  if (tradeSummary) tradeSummary.textContent = '取引内容: --';
+  authToken = null;
+  tokenInput.disabled = false;
+  loginBtn.disabled = false;
+  logoutBtn.disabled = true;
+  tokenInput.value = '';
+  balanceInfo.innerHTML = '<div class="text-muted">ログインして残高を表示</div>';
+  currentRateDisplay.textContent = '--.--';
+  balanceTimestamp.textContent = '';
+  tradeResult.textContent = '';
+  tradeSummary.textContent = '取引内容: --';
   lastBalance = null;
+  loginStatus.textContent = 'ログアウトしました。';
   setTradeState(false);
-
-  // ユーザー情報クリア
-  const userInfoEl = document.getElementById('userInfo');
-  if (userInfoEl) {
-    userInfoEl.innerHTML = 'ログインしていません';
-  }
 }
 
 function startPolling() {
@@ -162,16 +166,9 @@ function stopPolling() {
 }
 
 async function fetchBalance() {
-  if (!accessKey || !secretKey) return;
-
-  const timestamp = Date.now().toString();
-  const message = timestamp + JSON.stringify({});
-  const signature = crypto.createHmac('sha256', secretKey)
-    .update(message)
-    .digest('hex');
-
+  if (!authToken) return;
   try {
-    const url = `/api/keys-balance?accessKey=${encodeURIComponent(accessKey)}&signature=${encodeURIComponent(signature)}&timestamp=${timestamp}`;
+    const url = `/api/token-balance?token=${encodeURIComponent(authToken)}`;
     const response = await fetch(url);
     if (!response.ok) {
       throw new Error('残高取得に失敗しました');
@@ -182,54 +179,26 @@ async function fetchBalance() {
     updateTradeSummary();
   } catch (error) {
     console.error(error);
-    if (loginStatus) loginStatus.textContent = '残高更新中にエラーが発生しました。';
+    loginStatus.textContent = '残高更新中にエラーが発生しました。';
   }
 }
 
 async function executeTrade() {
-    if (!accessKey || !secretKey) return;
-
-    // nullチェック
-    if (!tradeAmountInput || !tradeResult) {
-        if (tradeResult) {
-          tradeResult.innerHTML = '<div class="text-danger">入力要素が見つかりません。</div>';
-        }
-        return;
-    }
-
+    if (!authToken) return;
     const amount = Number(tradeAmountInput.value);
     if (!amount || amount <= 0) {
         tradeResult.innerHTML = '<div class="text-danger">数量を入力してください。</div>';
         return;
     }
+    const type = document.querySelector('input[name="tradeType"]:checked').value;
 
-    const tradeTypeInput = document.querySelector('input[name="tradeType"]:checked');
-    if (!tradeTypeInput) {
-        tradeResult.innerHTML = '<div class="text-danger">取引種別が選択されていません。</div>';
-        return;
-    }
-
-    const type = tradeTypeInput.value;
-
-    const timestamp = Date.now().toString();
-    const body = { type, amount };
-    const message = timestamp + JSON.stringify(body);
-    const signature = crypto.createHmac('sha256', secretKey)
-      .update(message)
-      .digest('hex');
-
-    if (executeTradeBtn) executeTradeBtn.disabled = true;
+    executeTradeBtn.disabled = true;
     tradeResult.innerHTML = '<div class="text-muted">取引実行中...</div>';
     try {
-        const response = await fetch('/api/keys-order', {
+        const response = await fetch('/api/token-order', {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-access-key': accessKey,
-              'x-signature': signature,
-              'x-timestamp': timestamp
-            },
-            body: JSON.stringify(body)
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token: authToken, type, amount })
         });
 
         const data = await response.json();
@@ -253,16 +222,12 @@ async function executeTrade() {
         });
         tradeResult.innerHTML = `<div class="text-danger">${error.message}</div>`;
     } finally {
-        if (executeTradeBtn) executeTradeBtn.disabled = false;
+        executeTradeBtn.disabled = false;
     }
 }
 
 function openTradeConfirmModal() {
-    if (!accessKey || !secretKey) return;
-
-    // nullチェック
-    if (!tradeAmountInput || !tradeResult) return;
-
+    if (!authToken) return;
     const amount = Number(tradeAmountInput.value);
     if (!amount || amount <= 0) {
         tradeResult.innerHTML = '<div class="text-danger">数量を入力してください。</div>';
@@ -272,14 +237,7 @@ function openTradeConfirmModal() {
         tradeResult.innerHTML = '<div class="text-danger">レート情報が取得できていません。</div>';
         return;
     }
-
-    const tradeTypeInput = document.querySelector('input[name="tradeType"]:checked');
-    if (!tradeTypeInput) {
-        tradeResult.innerHTML = '<div class="text-danger">取引種別が選択されていません。</div>';
-        return;
-    }
-
-    const type = tradeTypeInput.value;
+    const type = document.querySelector('input[name="tradeType"]:checked').value;
     const estimate = getTradeEstimate(amount, type, lastBalance.rate);
 
     if (confirmType) confirmType.textContent = type === 'buy' ? '購入' : '売却';
@@ -287,8 +245,8 @@ function openTradeConfirmModal() {
     if (confirmEstimate) confirmEstimate.textContent = estimate;
     if (confirmTradeTypeInput) confirmTradeTypeInput.value = type;
 
-    if (!confirmModalInstance && confirmTradeModalEl && window.Bootstrap) {
-        confirmModalInstance = new window.Bootstrap.Modal(confirmTradeModalEl);
+    if (!confirmModalInstance && confirmTradeModalEl && window.bootstrap) {
+        confirmModalInstance = new bootstrap.Modal(confirmTradeModalEl);
     }
     if (confirmModalInstance) {
         confirmModalInstance.show();
@@ -334,198 +292,16 @@ function checkAlert(currentRate) {
   }
 }
 
-// イベントリスナーはDOMContentLoaded内で設定
-
-function showLoginModal() {
-  // モーダルを表示
-  const modalEl = document.getElementById('loginModal');
-  if (modalEl && window.Bootstrap) {
-    const modal = new window.Bootstrap.Modal(modalEl);
-    modal.show();
-  }
+loginBtn.addEventListener('click', login);
+logoutBtn.addEventListener('click', logout);
+executeTradeBtn.addEventListener('click', openTradeConfirmModal);
+tradeAmountInput.addEventListener('input', updateTradeSummary);
+tradeTypeInputs.forEach(input => input.addEventListener('change', updateTradeSummary));
+setAlertBtn.addEventListener('click', setAlert);
+clearAlertBtn.addEventListener('click', clearAlert);
+if (confirmTradeBtn) {
+    confirmTradeBtn.addEventListener('click', confirmTradeExecution);
 }
 
-async function loginWithModal() {
-  const form = document.getElementById('loginForm');
-  if (!form) return;
-
-  const formData = new FormData(form);
-  const file = formData.get('keyFile');
-  const token = formData.get('token');
-
-  let accessKeyInput, secretKeyInput;
-
-  // ファイルが選択されている場合
-  if (file && file.size > 0) {
-    try {
-      const content = await file.text();
-      const lines = content.split('\n');
-      const accessKeyLine = lines.find(line => line.includes('Access Key:'));
-      const secretKeyLine = lines.find(line => line.includes('Secret Key:'));
-
-      if (accessKeyLine && secretKeyLine) {
-        accessKeyInput = accessKeyLine.split('Access Key:')[1].trim();
-        secretKeyInput = secretKeyLine.split('Secret Key:')[1].trim();
-      } else {
-        // JSON形式の場合
-        const jsonData = JSON.parse(content);
-        if (jsonData.token) {
-          const parts = jsonData.token.split(':');
-          if (parts.length === 2) {
-            accessKeyInput = parts[0];
-            secretKeyInput = parts[1];
-          }
-        }
-      }
-    } catch (error) {
-      const loginStatus = document.getElementById('loginStatus');
-      if (loginStatus) loginStatus.textContent = 'ファイルの読み込みに失敗しました。';
-      return;
-    }
-  }
-  // 手動入力の場合
-  else if (token && token.trim()) {
-    const parts = token.split(':');
-    if (parts.length !== 2) {
-      const loginStatus = document.getElementById('loginStatus');
-      if (loginStatus) loginStatus.textContent = '形式: TKU-XXXXXX:YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY';
-      return;
-    }
-    accessKeyInput = parts[0].trim();
-    secretKeyInput = parts[1].trim();
-  } else {
-    const loginStatus = document.getElementById('loginStatus');
-    if (loginStatus) loginStatus.textContent = 'ファイルを選択するか、手動で入力してください。';
-    return;
-  }
-
-  if (!accessKeyInput.startsWith('TKU-')) {
-    const loginStatus = document.getElementById('loginStatus');
-    if (loginStatus) loginStatus.textContent = 'Access KeyはTKU-で始まる必要があります。';
-    return;
-  }
-
-  // ボタンの状態変更
-  const submitBtn = form.querySelector('button[type="submit"]');
-  if (submitBtn) {
-    submitBtn.disabled = true;
-    submitBtn.textContent = '認証中...';
-  }
-
-  try {
-    const response = await fetch('/api/keys-login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ accessKey: accessKeyInput, secretKey: secretKeyInput })
-    });
-
-    if (!response.ok) {
-      throw new Error((await response.json()).error || 'ログインに失敗しました。');
-    }
-
-    const data = await response.json();
-    accessKey = accessKeyInput;
-    secretKey = secretKeyInput;
-
-    // モーダルを閉じる
-    const modalEl = document.getElementById('loginModal');
-    if (modalEl && window.Bootstrap) {
-      const modal = window.Bootstrap.Modal.getInstance(modalEl);
-      if (modal) modal.hide();
-    }
-
-    // ユーザー情報表示
-    const userInfoEl = document.getElementById('userInfo');
-    if (userInfoEl) {
-      userInfoEl.innerHTML = `
-        <div><strong>${data.user.displayName || data.user.username}</strong></div>
-        <div class="text-muted small">${data.guild.name}</div>
-      `;
-    }
-
-    // ナビゲーションボタン更新
-    const navLoginBtn = document.getElementById('loginBtnNav');
-    const navLogoutBtn = document.getElementById('logoutBtnNav');
-    if (navLoginBtn) navLoginBtn.style.display = 'none';
-    if (navLogoutBtn) navLogoutBtn.disabled = false;
-
-    lastBalance = data;
-    renderBalance(data);
-    setTradeState(true);
-    startPolling();
-
-    // チャート初期化
-    await initChart();
-    await updateMarketData();
-    startRealtimeUpdates();
-
-  } catch (error) {
-    accessKey = null;
-    secretKey = null;
-    const loginStatus = document.getElementById('loginStatus');
-    if (loginStatus) loginStatus.textContent = error.message;
-  } finally {
-    // ボタンの状態リセット
-    if (submitBtn) {
-      submitBtn.disabled = false;
-      submitBtn.textContent = '認証';
-    }
-    setLoading(false);
-  }
-}
-
-// グローバル関数として公開
-window.showLoginModal = showLoginModal;
-window.logout = logout;
-
-// DOMContentLoadedイベントで初期化
-document.addEventListener('DOMContentLoaded', function() {
-  // DOM要素の取得
-  loginBtn = document.getElementById('loginBtnNav');
-  logoutBtn = document.getElementById('logoutBtnNav');
-  loginStatus = document.getElementById('loginStatus');
-  keyFileInput = document.getElementById('keyFileInput');
-  manualTokenInput = document.getElementById('manualTokenInput');
-  balanceInfo = document.getElementById('balanceInfo');
-  balanceTimestamp = document.getElementById('balanceTimestamp');
-  currentRateDisplay = document.getElementById('currentRateDisplay');
-  tradeSummary = document.getElementById('tradeSummary');
-  tradeResult = document.getElementById('tradeResult');
-  tradeLog = document.getElementById('tradeLog');
-  executeTradeBtn = document.getElementById('executeTradeBtn');
-  tradeAmountInput = document.getElementById('tradeAmount');
-  tradeTypeInputs = document.querySelectorAll('input[name="tradeType"]');
-  alertRateInput = document.getElementById('alertRate');
-  confirmTradeModalEl = document.getElementById('tradeConfirmModal');
-  confirmTradeBtn = document.getElementById('confirmTradeBtn');
-  confirmType = document.getElementById('confirmType');
-  confirmAmount = document.getElementById('confirmAmount');
-  confirmEstimate = document.getElementById('confirmEstimate');
-  confirmTradeTypeInput = document.getElementById('confirmTradeType');
-  alertDirectionSelect = document.getElementById('alertDirection');
-  setAlertBtn = document.getElementById('setAlertBtn');
-  clearAlertBtn = document.getElementById('clearAlertBtn');
-  alertSound = document.getElementById('alertSound');
-
-  // イベントリスナーの設定
-  if (loginBtn) loginBtn.addEventListener('click', showLoginModal);
-  if (logoutBtn) logoutBtn.addEventListener('click', logout);
-  if (tradeAmountInput) tradeAmountInput.addEventListener('input', updateTradeSummary);
-  if (tradeTypeInputs) tradeTypeInputs.forEach(input => input.addEventListener('change', updateTradeSummary));
-  if (setAlertBtn) setAlertBtn.addEventListener('click', setAlert);
-  if (clearAlertBtn) clearAlertBtn.addEventListener('click', clearAlert);
-  if (confirmTradeBtn) confirmTradeBtn.addEventListener('click', confirmTradeExecution);
-
-  // モーダルのログインフォーム
-  const loginForm = document.getElementById('loginForm');
-  if (loginForm) {
-    loginForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      await loginWithModal();
-    });
-  }
-
-  // 初期化
-  updateTradeSummary();
-  setTradeState(false);
-});
+updateTradeSummary();
+setTradeState(false);
