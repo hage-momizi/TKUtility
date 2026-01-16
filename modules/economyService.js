@@ -1422,89 +1422,60 @@ function getRecentTradeCount() {
  * @param {number} netDemand - 正味需要（買-売）
  * @returns {number} 変動率
  */
+
 function calculateSmartRateChange(marketData, chatActivity, top3Ratio, recentTrades, netDemand) {
   const currentRate = getTKUCRate();
   const fairPrice = getFairPrice();
 
   const deviation = (currentRate - fairPrice) / fairPrice;
 
-  const rawDemand = netDemand * 0.005;
-  const effectiveDemand = recentTrades === 0 ? 0 : rawDemand;
+  let change = 0;
 
-  // 🎲 1. ランダムノイズの強化（仮想通貨風）
-  let noise = (Math.random() - 0.5) * 0.3; // ±0.15%
-  if (recentTrades > 0) noise *= 2; // 取引中は強化
-
-  // 🧠 2. 市場感情更新（Bull/Bear）
-  if (netDemand > 10) {
-    marketSentiment = Math.min(1.0, marketSentiment + 0.1); // 買い圧力でBull
-  } else if (netDemand < -10) {
-    marketSentiment = Math.max(-1.0, marketSentiment - 0.1); // 売り圧力でBear
-  } else {
-    marketSentiment *= 0.95; // 徐々に中立に
+  // =========================
+  // ① 需給インパクト（メイン）
+  // =========================
+  const DEMAND_IMPACT = 0.002;
+  if (recentTrades > 0) {
+    change += netDemand * DEMAND_IMPACT;
   }
 
-  // 🎯 3. 感情によるボラティリティ
-  const volatility = 1.0 + Math.abs(marketSentiment) * 0.5;
+  // =========================
+  // ② 平常時ノイズ（小さく）
+  // =========================
+  const NOISE = 0.001; // ±0.1%
+  const noiseStrength = recentTrades > 0 ? 1.0 : 0.3;
+  change += (Math.random() - 0.5) * NOISE * noiseStrength;
 
-  let change;
+  // =========================
+  // ③ 平均回帰（フェア価格に戻す力）
+  // =========================
+  const REVERT = 0.05; // ここ重要。大きいほどレンジに戻る
+  change -= deviation * REVERT;
 
-  if (effectiveDemand === 0) {
-    change = lastRateChange * 0.2;  // もっと殺す
+  // =========================
+  // ④ トレンド慣性（ごく弱く）
+  // =========================
+  change += lastRateChange * 0.05;
 
-    // 乖離が大きい時だけ、ほんの少し重力
-    if (Math.abs(deviation) > 0.2) {
-      const GRAVITY = 0.02;
-      change -= deviation * GRAVITY * 0.2;
-    }
-  } else {
-    change = lastRateChange * 0.6 + effectiveDemand * 0.4;
-  }
+  // =========================
+  // ⑤ 暴走防止リミッター
+  // =========================
+  const MAX_MOVE = 0.03; // ±3%
+  change = Math.max(-MAX_MOVE, Math.min(MAX_MOVE, change));
 
-  const GRAVITY = 0.02;
-  change -= deviation * GRAVITY;
-
-  // 🎉 4. チャット盛り上がりによるランダム変動
-  if (chatActivity > 50) {
-    const chatBoost = (Math.random() - 0.5) * chatActivity * 0.001;
-    change += chatBoost;
-  }
-
-  // 🔄 5. トレンド反転確率（5%）
-  if (Math.random() < 0.05) {
-    change *= -0.3; // 弱い逆転
-  }
-
-  // 📰 6. ニュースイベント風ランダムイベント（1%）
-  if (Math.random() < 0.01) {
-    const eventImpact = (Math.random() - 0.5) * 2.0; // ±1%
-    change += eventImpact;
-  }
-
-  // ノイズとボラティリティを適用
-  change = (change + noise) * volatility;
-
-  // 減衰強化
-  change *= 0.85;
-
-  if (recentTrades === 0 && Math.abs(change) < 0.02) {
+  // =========================
+  // ⑥ アイドル完全停止ゾーン
+  // =========================
+  if (recentTrades === 0 && Math.abs(change) < 0.002) {
     change = 0;
   }
 
-  change = Math.max(-3, Math.min(3, change));
-
-  // アイドル時に微妙なノイズを追加
-  if (recentTrades === 0 && Math.abs(change) < 0.005) {
-    const idleNoise = (Math.random() - 0.5) * 0.01; // ±0.005%
-    change += idleNoise;
-  }
-
-  // 詳細ログ出力
-  console.log(`📊 詳細: currentRate=${currentRate.toFixed(2)}, fairPrice=${fairPrice.toFixed(2)}, deviation=${(deviation*100).toFixed(2)}%, sentiment=${marketSentiment.toFixed(2)}, noise=${noise.toFixed(4)}, change=${change.toFixed(4)}, lastRateChange=${lastRateChange.toFixed(4)}`);
+  console.log(`📊 current=${currentRate.toFixed(2)} fair=${fairPrice.toFixed(2)} dev=${(deviation*100).toFixed(2)}% demand=${netDemand} change=${change.toFixed(4)}`);
 
   lastRateChange = change;
   return change;
 }
+
 
 /**
  * 月末リセット処理
