@@ -23,3 +23,8 @@ DATA_FORMAT.md
 ECONOMY_SPEC.txt
 package.json
 package-lock.json
+config/constants.js
+privateTokens.json
+tkucRate.json
+transactionHistory.json
+userBalances.json
