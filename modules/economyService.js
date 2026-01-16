@@ -1442,7 +1442,7 @@ function calculateSmartRateChange(marketData, chatActivity, top3Ratio, recentTra
   // =========================
   // ② 平常時ノイズ（小さく）
   // =========================
-  const NOISE = 0.001; // ±0.1%
+  const NOISE = 0.002; // ±0.1%
   const noiseStrength = recentTrades > 0 ? 1.0 : 0.3;
   change += (Math.random() - 0.5) * NOISE * noiseStrength;
 
@@ -1466,9 +1466,9 @@ function calculateSmartRateChange(marketData, chatActivity, top3Ratio, recentTra
   // =========================
   // ⑥ アイドル完全停止ゾーン
   // =========================
-  if (recentTrades === 0 && Math.abs(change) < 0.002) {
-    change = 0;
-  }
+  //if (recentTrades === 0 && Math.abs(change) < 0.002) {
+  //change = 0;
+  //}
 
   console.log(`📊 current=${currentRate.toFixed(2)} fair=${fairPrice.toFixed(2)} dev=${(deviation*100).toFixed(2)}% demand=${netDemand} change=${change.toFixed(4)}`);
 
