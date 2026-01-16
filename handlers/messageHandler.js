@@ -220,8 +220,15 @@ async function handleAIChat(message) {
 async function handleTKUPGain(message) {
   if (message.author.bot) return;
 
-  // VC参加は対象外
-  if (message.member?.voice?.channel) return;
+  // VC参加中の場合、VCの聞き専チャットでは獲得しない
+  if (message.member?.voice?.channel) {
+    const voiceChannelName = message.member.voice.channel.name;
+    const textChannelName = message.channel.name;
+    // VCと同じ名前のテキストチャンネルは聞き専チャットとみなす
+    if (voiceChannelName === textChannelName) {
+      return;
+    }
+  }
 
   // 画像チェック
   const hasImage = message.attachments.some(att => att.contentType?.startsWith('image/'));

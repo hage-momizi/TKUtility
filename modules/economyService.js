@@ -227,6 +227,9 @@ function getDynamicUpperLimit(marketData) {
 // トレンド慣性用変数
 let lastRateChange = 0;
 
+// 需要差分用変数
+let lastNetDemand = 0;
+
 // 市場感情（Bull/Bear）システム
 let marketSentiment = 0; // -1.0 (Bear) to +1.0 (Bull)
 
@@ -1430,14 +1433,18 @@ function calculateSmartRateChange(marketData, chatActivity, top3Ratio, recentTra
 
   const deviation = (currentRate - fairPrice) / fairPrice;
 
+  // 需要差分を計算
+  const demandDelta = netDemand - lastNetDemand;
+  lastNetDemand = netDemand;
+
   let change = 0;
 
   // =========================
-  // ① 需給インパクト（メイン）
+  // ① 需給インパクト（メイン）- 差分使用
   // =========================
   const DEMAND_IMPACT = 0.002;
   if (recentTrades > 0) {
-    change += netDemand * DEMAND_IMPACT;
+    change += demandDelta * DEMAND_IMPACT;
   }
 
   // =========================
@@ -1448,20 +1455,27 @@ function calculateSmartRateChange(marketData, chatActivity, top3Ratio, recentTra
   change += (Math.random() - 0.5) * NOISE * noiseStrength;
 
   // =========================
-  // ③ 平均回帰（フェア価格に戻す力）
+  // ③ 平均回帰（フェア価格に戻す力）- 弱く
   // =========================
-  const REVERT = 0.05; // ここ重要。大きいほどレンジに戻る
+  const REVERT = 0.005; // 弱いブレーキに変更
   change -= deviation * REVERT;
 
   // =========================
-  // ④ トレンド慣性（ごく弱く）
+  // ④ トレンド慣性（ごく弱く）- 減衰付き
   // =========================
   change += lastRateChange * 0.05;
 
+  // 慣性減衰
+  if (Math.abs(demandDelta) < 0.001) {
+    lastRateChange *= 0.7;
+  }
+
   // =========================
-  // ⑤ 暴走防止リミッター
+  // ⑤ 暴走防止リミッター（需要連動）
   // =========================
-  const MAX_MOVE = 0.03; // ±3%
+  const baseMaxMove = 0.005;
+  const dynamicMaxMove = baseMaxMove * (1 + Math.abs(demandDelta) / 20);
+  const MAX_MOVE = Math.min(0.05, dynamicMaxMove);
   change = Math.max(-MAX_MOVE, Math.min(MAX_MOVE, change));
 
   // =========================
@@ -1471,7 +1485,7 @@ function calculateSmartRateChange(marketData, chatActivity, top3Ratio, recentTra
   //change = 0;
   //}
 
-  console.log(`📊 current=${currentRate.toFixed(2)} fair=${fairPrice.toFixed(2)} dev=${(deviation*100).toFixed(2)}% demand=${netDemand} change=${change.toFixed(4)}`);
+  console.log(`📊 current=${currentRate.toFixed(2)} fair=${fairPrice.toFixed(2)} dev=${(deviation*100).toFixed(2)}% demandDelta=${demandDelta.toFixed(2)} change=${change.toFixed(4)}`);
 
   lastRateChange = change;
   return change;
