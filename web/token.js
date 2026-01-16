@@ -474,7 +474,7 @@ document.addEventListener('DOMContentLoaded', function() {
   if (confirmTradeBtn) confirmTradeBtn.addEventListener('click', confirmTradeExecution);
 
   // モーダルのログインボタン
-  const modalLoginBtn = document.querySelector('#loginModal .btn-primary');
+  const modalLoginBtn = document.getElementById('modalLoginBtn');
   if (modalLoginBtn) {
     modalLoginBtn.addEventListener('click', loginWithModal);
   }
