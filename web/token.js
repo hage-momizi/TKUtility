@@ -96,10 +96,17 @@ function appendTradeLog(entry) {
   tradeLog.prepend(li);
 }
 
-function setTradeState(enabled) {
-  if (executeTradeBtn) executeTradeBtn.disabled = !enabled;
-  if (tradeAmountInput) tradeAmountInput.disabled = !enabled;
-  if (tradeTypeInputs) tradeTypeInputs.forEach(input => input.disabled = !enabled);
+function setTradeState(loggedIn) {
+  if (executeTradeBtn) {
+    executeTradeBtn.disabled = false;
+    if (loggedIn) {
+      executeTradeBtn.onclick = openTradeConfirmModal;
+    } else {
+      executeTradeBtn.onclick = showLoginModal;
+    }
+  }
+  if (tradeAmountInput) tradeAmountInput.disabled = !loggedIn;
+  if (tradeTypeInputs) tradeTypeInputs.forEach(input => input.disabled = !loggedIn);
 }
 
 // 古いlogin関数は削除 - loginWithModal関数を使用
@@ -499,7 +506,6 @@ document.addEventListener('DOMContentLoaded', function() {
   // イベントリスナーの設定
   if (loginBtn) loginBtn.addEventListener('click', showLoginModal);
   if (logoutBtn) logoutBtn.addEventListener('click', logout);
-  if (executeTradeBtn) executeTradeBtn.addEventListener('click', openTradeConfirmModal);
   if (tradeAmountInput) tradeAmountInput.addEventListener('input', updateTradeSummary);
   if (tradeTypeInputs) tradeTypeInputs.forEach(input => input.addEventListener('change', updateTradeSummary));
   if (setAlertBtn) setAlertBtn.addEventListener('click', setAlert);
