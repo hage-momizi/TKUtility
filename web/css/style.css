@@ -1,0 +1,157 @@
+/* Bootstrapオーバーライドとカスタムスタイル */
+:root {
+    --bs-primary: #6366f1;
+    --bs-secondary: #64748b;
+    --bs-success: #10b981;
+    --bs-danger: #ef4444;
+    --bs-warning: #f59e0b;
+    --bs-dark: #0f172a;
+    --bs-body-bg: #0f172a;
+    --bs-body-color: #f8fafc;
+}
+
+/* ダークテーマのBootstrap調整 */
+.navbar-dark {
+    background-color: var(--bs-dark) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.card {
+    background-color: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+}
+
+.card-header {
+    background-color: rgba(255, 255, 255, 0.05);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.form-control:focus {
+    background-color: rgba(255, 255, 255, 0.05);
+    border-color: var(--bs-primary);
+    color: var(--bs-body-color);
+    box-shadow: 0 0 0 0.25rem rgba(99, 102, 241, 0.25);
+}
+
+.form-control {
+    background-color: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--bs-body-color);
+}
+
+.form-control::placeholder {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.btn-close {
+    filter: invert(1);
+}
+
+/* モーダルのダークテーマ対応 */
+.modal-content {
+    background-color: var(--bs-dark);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* タブのカスタムスタイル */
+.nav-tabs .nav-link {
+    background-color: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.nav-tabs .nav-link.active {
+    background-color: var(--bs-primary);
+    border-color: var(--bs-primary);
+    color: white;
+}
+
+/* トーストのカスタムスタイル */
+.toast {
+    background-color: var(--bs-dark);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* チャートコンテナ */
+#chart-container {
+    border-radius: 0.375rem;
+    overflow: hidden;
+}
+
+/* レート表示の強調 */
+#current-rate-large {
+    font-size: 3rem;
+    font-weight: bold;
+    color: var(--bs-primary);
+}
+
+/* バランス表示のスタイル */
+.balance-item {
+    text-align: center;
+    padding: 0.5rem;
+}
+
+.balance-value {
+    font-size: 1.25rem;
+    font-weight: bold;
+}
+
+/* ローディングアニメーション */
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* 開発者モードインジケーター */
+.dev-mode {
+    position: fixed;
+    bottom: 10px;
+    left: 10px;
+    background: var(--bs-warning);
+    color: var(--bs-dark);
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: bold;
+    z-index: 1000;
+}
+
+/* レスポンシブ調整 */
+@media (max-width: 768px) {
+    #chart-container {
+        height: 300px !important;
+    }
+
+    .balance-display {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .chart-controls {
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .btn-group {
+        flex-wrap: wrap;
+    }
+}
+
+/* カスタムスクロールバー */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
+}

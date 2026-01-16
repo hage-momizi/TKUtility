@@ -475,6 +475,40 @@ function startWebServer(client) {
     }
   });
 
+  app.post('/api/token-balance', async (req, res) => {
+    try {
+      const { token } = req.body;
+
+      if (!token || typeof token !== 'string') {
+        return res.status(400).json({ success: false, error: 'トークンを指定してください。' });
+      }
+
+      const resolved = resolveToken(token);
+      if (!resolved) {
+        return res.status(401).json({ success: false, error: 'トークンが無効です。' });
+      }
+
+      const { guildId, userId } = resolved;
+      const guild = client.guilds.cache.get(guildId);
+      if (!guild) {
+        return res.status(404).json({ success: false, error: 'ギルドが見つかりません。' });
+      }
+
+      const balance = getUserBalance(userId);
+      const rate = getTKUCRate();
+
+      res.json({
+        success: true,
+        balance,
+        rate,
+        timestamp: Date.now()
+      });
+    } catch (error) {
+      console.error('token-balance error:', error);
+      res.status(500).json({ success: false, error: '残高取得に失敗しました。' });
+    }
+  });
+
   // サーバー起動 ---------------------------------------------------------
   app.listen(PORT, () => {
     console.log(`Web panel running at http://localhost:${PORT}`);
