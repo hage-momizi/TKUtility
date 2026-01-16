@@ -5,32 +5,14 @@ let balancePoller = null;
 let lastBalance = null;
 let alertConfig = null;
 
-const loginBtn = document.getElementById('loginBtn');
-const logoutBtn = document.getElementById('logoutBtn');
-const loginStatus = document.getElementById('loginStatus');
-const keyFileInput = document.getElementById('keyFileInput');
-const manualTokenInput = document.getElementById('manualTokenInput');
-const balanceInfo = document.getElementById('balanceInfo');
-const balanceTimestamp = document.getElementById('balanceTimestamp');
-const currentRateDisplay = document.getElementById('currentRateDisplay');
-const tradeSummary = document.getElementById('tradeSummary');
-const tradeResult = document.getElementById('tradeResult');
-const tradeLog = document.getElementById('tradeLog');
-const executeTradeBtn = document.getElementById('executeTradeBtn');
-const tradeAmountInput = document.getElementById('tradeAmount');
-const tradeTypeInputs = document.querySelectorAll('input[name="tradeType"]');
-const alertRateInput = document.getElementById('alertRate');
-const confirmTradeModalEl = document.getElementById('tradeConfirmModal');
-const confirmTradeBtn = document.getElementById('confirmTradeBtn');
-const confirmType = document.getElementById('confirmType');
-const confirmAmount = document.getElementById('confirmAmount');
-const confirmEstimate = document.getElementById('confirmEstimate');
-const confirmTradeTypeInput = document.getElementById('confirmTradeType');
+let loginBtn, logoutBtn, loginStatus, keyFileInput, manualTokenInput;
+let balanceInfo, balanceTimestamp, currentRateDisplay;
+let tradeSummary, tradeResult, tradeLog;
+let executeTradeBtn, tradeAmountInput, tradeTypeInputs;
+let alertRateInput, confirmTradeModalEl, confirmTradeBtn;
+let confirmType, confirmAmount, confirmEstimate, confirmTradeTypeInput;
 let confirmModalInstance = null;
-const alertDirectionSelect = document.getElementById('alertDirection');
-const setAlertBtn = document.getElementById('setAlertBtn');
-const clearAlertBtn = document.getElementById('clearAlertBtn');
-const alertSound = document.getElementById('alertSound');
+let alertDirectionSelect, setAlertBtn, clearAlertBtn, alertSound;
 
 function setLoading(state, message = '') {
   loginBtn.disabled = state;
@@ -290,15 +272,7 @@ function checkAlert(currentRate) {
   }
 }
 
-logoutBtn.addEventListener('click', logout);
-executeTradeBtn.addEventListener('click', openTradeConfirmModal);
-tradeAmountInput.addEventListener('input', updateTradeSummary);
-tradeTypeInputs.forEach(input => input.addEventListener('change', updateTradeSummary));
-setAlertBtn.addEventListener('click', setAlert);
-clearAlertBtn.addEventListener('click', clearAlert);
-if (confirmTradeBtn) {
-    confirmTradeBtn.addEventListener('click', confirmTradeExecution);
-}
+// イベントリスナーはDOMContentLoaded内で設定
 
 function showLoginModal() {
   // モーダルを表示
@@ -427,10 +401,52 @@ setTradeState(false);
 window.showLoginModal = showLoginModal;
 window.logout = logout;
 
-// モーダルのログインボタンにイベントリスナーを追加
+// DOMContentLoadedイベントで初期化
 document.addEventListener('DOMContentLoaded', function() {
+  // DOM要素の取得
+  loginBtn = document.getElementById('loginBtn');
+  logoutBtn = document.getElementById('logoutBtn');
+  loginStatus = document.getElementById('loginStatus');
+  keyFileInput = document.getElementById('keyFileInput');
+  manualTokenInput = document.getElementById('manualTokenInput');
+  balanceInfo = document.getElementById('balanceInfo');
+  balanceTimestamp = document.getElementById('balanceTimestamp');
+  currentRateDisplay = document.getElementById('currentRateDisplay');
+  tradeSummary = document.getElementById('tradeSummary');
+  tradeResult = document.getElementById('tradeResult');
+  tradeLog = document.getElementById('tradeLog');
+  executeTradeBtn = document.getElementById('executeTradeBtn');
+  tradeAmountInput = document.getElementById('tradeAmount');
+  tradeTypeInputs = document.querySelectorAll('input[name="tradeType"]');
+  alertRateInput = document.getElementById('alertRate');
+  confirmTradeModalEl = document.getElementById('tradeConfirmModal');
+  confirmTradeBtn = document.getElementById('confirmTradeBtn');
+  confirmType = document.getElementById('confirmType');
+  confirmAmount = document.getElementById('confirmAmount');
+  confirmEstimate = document.getElementById('confirmEstimate');
+  confirmTradeTypeInput = document.getElementById('confirmTradeType');
+  alertDirectionSelect = document.getElementById('alertDirection');
+  setAlertBtn = document.getElementById('setAlertBtn');
+  clearAlertBtn = document.getElementById('clearAlertBtn');
+  alertSound = document.getElementById('alertSound');
+
+  // イベントリスナーの設定
+  if (loginBtn) loginBtn.addEventListener('click', showLoginModal);
+  if (logoutBtn) logoutBtn.addEventListener('click', logout);
+  if (executeTradeBtn) executeTradeBtn.addEventListener('click', openTradeConfirmModal);
+  if (tradeAmountInput) tradeAmountInput.addEventListener('input', updateTradeSummary);
+  if (tradeTypeInputs) tradeTypeInputs.forEach(input => input.addEventListener('change', updateTradeSummary));
+  if (setAlertBtn) setAlertBtn.addEventListener('click', setAlert);
+  if (clearAlertBtn) clearAlertBtn.addEventListener('click', clearAlert);
+  if (confirmTradeBtn) confirmTradeBtn.addEventListener('click', confirmTradeExecution);
+
+  // モーダルのログインボタン
   const modalLoginBtn = document.querySelector('#loginModal .btn-primary');
   if (modalLoginBtn) {
     modalLoginBtn.addEventListener('click', loginWithModal);
   }
+
+  // 初期化
+  updateTradeSummary();
+  setTradeState(false);
 });
