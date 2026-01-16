@@ -423,6 +423,10 @@ async function loginWithModal() {
 updateTradeSummary();
 setTradeState(false);
 
+// グローバル関数として公開
+window.showLoginModal = showLoginModal;
+window.logout = logout;
+
 // モーダルのログインボタンにイベントリスナーを追加
 document.addEventListener('DOMContentLoaded', function() {
   const modalLoginBtn = document.querySelector('#loginModal .btn-primary');
