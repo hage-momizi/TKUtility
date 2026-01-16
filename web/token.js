@@ -34,8 +34,16 @@ function getTradeEstimate(amount, type, rate) {
 }
 
 function updateTradeSummary() {
+    if (!tradeAmountInput || !tradeSummary) return;
+
     const amount = Number(tradeAmountInput.value) || 0;
-    const type = document.querySelector('input[name="tradeType"]:checked').value;
+    const tradeTypeInput = document.querySelector('input[name="tradeType"]:checked');
+    if (!tradeTypeInput) {
+        tradeSummary.textContent = '取引内容: --';
+        return;
+    }
+
+    const type = tradeTypeInput.value;
     if (!lastBalance) {
         tradeSummary.textContent = '取引内容: --';
         return;
@@ -153,12 +161,26 @@ async function fetchBalance() {
 
 async function executeTrade() {
     if (!accessKey || !secretKey) return;
+
+    // nullチェック
+    if (!tradeAmountInput) {
+        tradeResult.innerHTML = '<div class="text-danger">入力要素が見つかりません。</div>';
+        return;
+    }
+
     const amount = Number(tradeAmountInput.value);
     if (!amount || amount <= 0) {
         tradeResult.innerHTML = '<div class="text-danger">数量を入力してください。</div>';
         return;
     }
-    const type = document.querySelector('input[name="tradeType"]:checked').value;
+
+    const tradeTypeInput = document.querySelector('input[name="tradeType"]:checked');
+    if (!tradeTypeInput) {
+        tradeResult.innerHTML = '<div class="text-danger">取引種別が選択されていません。</div>';
+        return;
+    }
+
+    const type = tradeTypeInput.value;
 
     const timestamp = Date.now().toString();
     const body = { type, amount };
@@ -208,6 +230,10 @@ async function executeTrade() {
 
 function openTradeConfirmModal() {
     if (!accessKey || !secretKey) return;
+
+    // nullチェック
+    if (!tradeAmountInput || !tradeResult) return;
+
     const amount = Number(tradeAmountInput.value);
     if (!amount || amount <= 0) {
         tradeResult.innerHTML = '<div class="text-danger">数量を入力してください。</div>';
@@ -217,7 +243,14 @@ function openTradeConfirmModal() {
         tradeResult.innerHTML = '<div class="text-danger">レート情報が取得できていません。</div>';
         return;
     }
-    const type = document.querySelector('input[name="tradeType"]:checked').value;
+
+    const tradeTypeInput = document.querySelector('input[name="tradeType"]:checked');
+    if (!tradeTypeInput) {
+        tradeResult.innerHTML = '<div class="text-danger">取引種別が選択されていません。</div>';
+        return;
+    }
+
+    const type = tradeTypeInput.value;
     const estimate = getTradeEstimate(amount, type, lastBalance.rate);
 
     if (confirmType) confirmType.textContent = type === 'buy' ? '購入' : '売却';
