@@ -754,6 +754,47 @@
             color: var(--down-color);
         }
 
+        /* Login Modal */
+        .login-modal-content .modal-content {
+            background: var(--card-bg);
+            border: 1px solid var(--border-subtle);
+            border-radius: 16px;
+        }
+
+        .login-modal-content .modal-header {
+            border-bottom: 1px solid var(--border-subtle);
+            background: rgba(26, 36, 52, 0.85);
+            border-radius: 16px 16px 0 0;
+        }
+
+        .login-modal-content .modal-body {
+            padding: 1.5rem;
+        }
+
+        .login-modal-content .form-label {
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+        }
+
+        .login-modal-content .form-control {
+            background: rgba(12, 18, 26, 0.8);
+            border: 1px solid var(--border-subtle);
+            color: var(--text-primary);
+            border-radius: 10px;
+        }
+
+        .login-modal-content .form-control:focus {
+            background: rgba(12, 18, 26, 0.9);
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 0.2rem rgba(138, 224, 199, 0.15);
+        }
+
+        .login-modal-content .btn-primary {
+            background: linear-gradient(135deg, var(--primary-color), var(--primary-hover));
+            border: none;
+        }
+
         /* Responsive Design */
         @media (max-width: 1200px) {
             .chart-wrapper {

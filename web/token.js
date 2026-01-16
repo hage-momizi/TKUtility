@@ -9,6 +9,8 @@ const tokenInput = document.getElementById('tokenInput');
 const loginBtn = document.getElementById('loginBtn');
 const logoutBtn = document.getElementById('logoutBtn');
 const loginStatus = document.getElementById('loginStatus');
+const keyFileInput = document.getElementById('keyFileInput');
+const manualTokenInput = document.getElementById('manualTokenInput');
 const balanceInfo = document.getElementById('balanceInfo');
 const balanceTimestamp = document.getElementById('balanceTimestamp');
 const currentRateDisplay = document.getElementById('currentRateDisplay');
@@ -368,5 +370,133 @@ if (confirmTradeBtn) {
     confirmTradeBtn.addEventListener('click', confirmTradeExecution);
 }
 
+function showLoginModal() {
+  // モーダルを表示
+  const modalEl = document.getElementById('loginModal');
+  if (modalEl && window.bootstrap) {
+    const modal = new bootstrap.Modal(modalEl);
+    modal.show();
+  }
+}
+
+async function loginWithModal() {
+  let accessKeyInput, secretKeyInput;
+
+  // ファイルが選択されている場合
+  if (keyFileInput.files.length > 0) {
+    const file = keyFileInput.files[0];
+    try {
+      const content = await file.text();
+      const lines = content.split('\n');
+      const accessKeyLine = lines.find(line => line.includes('Access Key:'));
+      const secretKeyLine = lines.find(line => line.includes('Secret Key:'));
+
+      if (accessKeyLine && secretKeyLine) {
+        accessKeyInput = accessKeyLine.split('Access Key:')[1].trim();
+        secretKeyInput = secretKeyLine.split('Secret Key:')[1].trim();
+      } else {
+        // JSON形式の場合
+        const jsonData = JSON.parse(content);
+        if (jsonData.token) {
+          const parts = jsonData.token.split(':');
+          if (parts.length === 2) {
+            accessKeyInput = parts[0];
+            secretKeyInput = parts[1];
+          }
+        }
+      }
+    } catch (error) {
+      loginStatus.textContent = 'ファイルの読み込みに失敗しました。';
+      return;
+    }
+  }
+  // 手動入力の場合
+  else if (manualTokenInput.value.trim()) {
+    const parts = manualTokenInput.value.split(':');
+    if (parts.length !== 2) {
+      loginStatus.textContent = '形式: TKU-XXXXXX:YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY';
+      return;
+    }
+    accessKeyInput = parts[0].trim();
+    secretKeyInput = parts[1].trim();
+  } else {
+    loginStatus.textContent = 'ファイルを選択するか、手動で入力してください。';
+    return;
+  }
+
+  if (!accessKeyInput.startsWith('TKU-')) {
+    loginStatus.textContent = 'Access KeyはTKU-で始まる必要があります。';
+    return;
+  }
+
+  setLoading(true, '認証中...');
+  try {
+    const response = await fetch('/api/keys-login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ accessKey: accessKeyInput, secretKey: secretKeyInput })
+    });
+
+    if (!response.ok) {
+      throw new Error((await response.json()).error || 'ログインに失敗しました。');
+    }
+
+    const data = await response.json();
+    accessKey = accessKeyInput;
+    secretKey = secretKeyInput;
+
+    // モーダルを閉じる
+    const modalEl = document.getElementById('loginModal');
+    if (modalEl && window.bootstrap) {
+      const modal = bootstrap.Modal.getInstance(modalEl);
+      if (modal) modal.hide();
+    }
+
+    // UI切り替え
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('mainContent').style.display = 'block';
+
+    // ユーザー情報表示
+    const userInfoEl = document.getElementById('userInfo');
+    if (userInfoEl) {
+      userInfoEl.innerHTML = `
+        <div><strong>${data.user.displayName || data.user.username}</strong></div>
+        <div class="text-muted small">${data.guild.name}</div>
+      `;
+    }
+
+    // ナビゲーションボタン更新
+    const navLoginBtn = document.querySelector('#authButtons .btn-primary');
+    const navLogoutBtn = document.querySelector('#authButtons .btn-outline-secondary');
+    if (navLoginBtn) navLoginBtn.style.display = 'none';
+    if (navLogoutBtn) navLogoutBtn.disabled = false;
+
+    lastBalance = data;
+    renderBalance(data);
+    setTradeState(true);
+    startPolling();
+
+    // チャート初期化
+    await initChart();
+    await updateMarketData();
+    startRealtimeUpdates();
+
+  } catch (error) {
+    accessKey = null;
+    secretKey = null;
+    loginStatus.textContent = error.message;
+  } finally {
+    setLoading(false);
+  }
+}
+
 updateTradeSummary();
 setTradeState(false);
+
+// モーダルのログインボタンにイベントリスナーを追加
+document.addEventListener('DOMContentLoaded', function() {
+  const modalLoginBtn = document.querySelector('#loginModal .btn-primary');
+  if (modalLoginBtn) {
+    modalLoginBtn.addEventListener('click', loginWithModal);
+  }
+});

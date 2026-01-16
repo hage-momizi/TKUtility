@@ -13,7 +13,7 @@
 
     <nav class="navbar">
         <div class="container-fluid">
-            <a class="navbar-brand" href="#">
+            <a class="navbar-brand" href="#chart">
                 <div class="brand-icon">
                     <i class="fa-solid fa-bolt-lightning"></i>
                 </div>
@@ -29,9 +29,14 @@
                     <span class="d-none d-sm-inline">2秒自動更新</span>
                     <span class="d-sm-none">LIVE</span>
                 </span>
-                <a href="#token-console" class="btn btn-outline-secondary btn-sm">
-                    <i class="fa-solid fa-right-to-bracket me-1"></i>トークンコンソール
-                </a>
+                <div id="authButtons">
+                    <button id="loginBtn" class="btn btn-primary btn-sm" onclick="showLoginModal()">
+                        <i class="fa-solid fa-right-to-bracket me-1"></i>ログイン
+                    </button>
+                    <button id="logoutBtn" class="btn btn-outline-secondary btn-sm" disabled onclick="logout()">
+                        <i class="fa-solid fa-right-from-bracket me-1"></i>ログアウト
+                    </button>
+                </div>
             </div>
         </div>
     </nav>
@@ -62,42 +67,8 @@
             </div>
         </div>
 
-        <!-- ログイン画面 -->
-        <div id="loginScreen" class="login-screen">
-            <div class="login-container">
-                <div class="login-card">
-                    <div class="login-header">
-                        <i class="fa-solid fa-bolt-lightning"></i>
-                        <h2>TKUC MARKET TERMINAL</h2>
-                        <p>API Keyでログインして取引を開始</p>
-                    </div>
-
-                    <div class="login-body">
-                        <div class="mb-4">
-                            <label class="form-label">Access Key : Secret Key</label>
-                            <input id="tokenInput" type="password" class="form-control form-control-lg" placeholder="TKU-XXXXXX:YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY">
-                            <div class="form-text">
-                                <small class="text-muted">
-                                    <i class="fa-solid fa-info-circle me-1"></i>
-                                    Discordの <code>/tk-token</code> コマンドで取得した鍵を入力してください
-                                </small>
-                            </div>
-                        </div>
-
-                        <div class="d-grid gap-2">
-                            <button id="loginBtn" class="btn btn-primary btn-lg">
-                                <i class="fa-solid fa-right-to-bracket me-2"></i>ログイン
-                            </button>
-                        </div>
-
-                        <div id="loginStatus" class="mt-3 text-center"></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- メインコンテンツ（ログイン後に表示） -->
-        <section id="mainContent" class="terminal-section" style="display: none;">
+        <!-- メインコンテンツ（常に表示） -->
+        <section id="mainContent" class="terminal-section">
             <div class="row g-3 g-lg-4 terminal-grid">
                 <div class="col-xl-8">
                     <div class="glass-card">
@@ -275,6 +246,40 @@
                             </div>
                         </div>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ログイン画面（モーダル） -->
+    <div class="modal fade" id="loginModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content login-modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fa-solid fa-key me-2"></i>API Key認証
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">API Keys ファイルを選択</label>
+                        <input type="file" id="keyFileInput" class="form-control" accept=".key,.json">
+                        <div class="form-text">
+                            <small class="text-muted">
+                                Discordの <code>/tk-token</code> コマンドでダウンロードした鍵ファイルを選択してください
+                            </small>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">または直接入力 (Access Key : Secret Key)</label>
+                        <input id="manualTokenInput" type="password" class="form-control" placeholder="TKU-XXXXXX:YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY">
+                    </div>
+                    <div id="loginStatus" class="text-center"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">キャンセル</button>
+                    <button id="loginBtn" class="btn btn-primary">認証</button>
                 </div>
             </div>
         </div>
@@ -663,11 +668,10 @@
         }
 
         window.onload = async () => {
-            // 初期状態: ログイン画面を表示
-            document.getElementById('loginScreen').style.display = 'flex';
-            document.getElementById('mainContent').style.display = 'none';
-
-            // チャートはログイン後に初期化
+            // チャートは常に初期化
+            await initChart();
+            await updateMarketData();
+            startRealtimeUpdates();
         };
     </script>
 </body>
