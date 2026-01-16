@@ -117,6 +117,8 @@ async function login() {
 
     const data = await response.json();
     authToken = token;
+    // トークンをローカルストレージに保存
+    localStorage.setItem('tkuc_token', authToken);
     loginStatus.textContent = `ログイン成功: ${data.user.displayName || data.user.username}`;
     loginBtn.disabled = true;
     logoutBtn.disabled = false;
@@ -138,6 +140,8 @@ async function login() {
 function logout() {
   stopPolling();
   authToken = null;
+  // ローカルストレージからトークンを削除
+  localStorage.removeItem('tkuc_token');
   tokenInput.disabled = false;
   loginBtn.disabled = false;
   logoutBtn.disabled = true;
@@ -305,3 +309,12 @@ if (confirmTradeBtn) {
 
 updateTradeSummary();
 setTradeState(false);
+
+// ページロード時にローカルストレージからトークンを復元して自動ログイン
+document.addEventListener('DOMContentLoaded', async () => {
+  const savedToken = localStorage.getItem('tkuc_token');
+  if (savedToken) {
+    tokenInput.value = savedToken;
+    await login();
+  }
+});
