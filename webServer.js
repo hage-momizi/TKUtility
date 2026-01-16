@@ -12,7 +12,7 @@ const {
   buyTKUC,
   recordTransaction
 } = require('./modules/economyService');
-const { resolveToken, resolveAccessKey, verifyApiSignature } = require('./modules/tokenService');
+const { resolveToken } = require('./modules/tokenService');
 const { FILES } = require('./config/constants');
 
 const newsConfigFile = path.join(__dirname, 'newsconfig.json');
@@ -198,27 +198,20 @@ function startWebServer(client) {
     }
   });
 
-  // API Keys認証 -------------------------------------------------------
-
-  app.post('/api/keys-login', async (req, res) => {
+  // トークンAPI ----------------------------------------------------------
+  app.post('/api/token-login', async (req, res) => {
     try {
-      const { accessKey, secretKey } = req.body;
-      if (!accessKey || !secretKey) {
-        return res.status(400).json({ success: false, error: 'Access KeyとSecret Keyを指定してください。' });
+      const { token } = req.body;
+      if (!token || typeof token !== 'string') {
+        return res.status(400).json({ success: false, error: 'トークンを指定してください。' });
       }
 
-      const resolved = resolveAccessKey(accessKey);
+      const resolved = resolveToken(token);
       if (!resolved) {
-        return res.status(401).json({ success: false, error: 'Access Keyが無効です。' });
+        return res.status(401).json({ success: false, error: 'トークンが無効です。' });
       }
 
       const { guildId, userId, tokenData } = resolved;
-
-      // Secret Key検証
-      if (tokenData.secretKey !== secretKey) {
-        return res.status(401).json({ success: false, error: 'Secret Keyが一致しません。' });
-      }
-
       const guild = client.guilds.cache.get(guildId);
       if (!guild) {
         return res.status(404).json({ success: false, error: 'ギルドが見つかりません。' });
@@ -232,40 +225,27 @@ function startWebServer(client) {
         success: true,
         guild: { id: guildId, name: guild.name },
         user: { id: userId, ...userInfo },
-        keysIssuedAt: tokenData.createdAt,
+        tokenIssuedAt: tokenData.createdAt,
         balance,
         rate,
         timestamp: Date.now()
       });
     } catch (error) {
-      console.error('keys-login error:', error);
+      console.error('token-login error:', error);
       res.status(500).json({ success: false, error: 'ログイン処理に失敗しました。' });
     }
   });
 
-  app.get('/api/keys-balance', (req, res) => {
+  app.get('/api/token-balance', (req, res) => {
     try {
-      const accessKey = req.query.accessKey;
-      const signature = req.query.signature;
-      const timestamp = req.query.timestamp;
-
-      if (!accessKey || !signature || !timestamp) {
-        return res.status(400).json({ success: false, error: '認証情報が不足しています。' });
+      const token = req.query.token;
+      if (!token || typeof token !== 'string') {
+        return res.status(400).json({ success: false, error: 'トークンを指定してください。' });
       }
 
-      // タイムスタンプ検証（5分以内）
-      const now = Date.now();
-      if (Math.abs(now - parseInt(timestamp)) > 5 * 60 * 1000) {
-        return res.status(401).json({ success: false, error: 'リクエストが期限切れです。' });
-      }
-
-      if (!verifyApiSignature(accessKey, signature, timestamp, {})) {
-        return res.status(401).json({ success: false, error: '署名が無効です。' });
-      }
-
-      const resolved = resolveAccessKey(accessKey);
+      const resolved = resolveToken(token);
       if (!resolved) {
-        return res.status(401).json({ success: false, error: 'Access Keyが無効です。' });
+        return res.status(401).json({ success: false, error: 'トークンが無効です。' });
       }
 
       const { userId } = resolved;
@@ -279,110 +259,8 @@ function startWebServer(client) {
         timestamp: Date.now()
       });
     } catch (error) {
-      console.error('keys-balance error:', error);
+      console.error('token-balance error:', error);
       res.status(500).json({ success: false, error: '残高取得に失敗しました。' });
-    }
-  });
-
-  app.post('/api/keys-order', async (req, res) => {
-    try {
-      const { type, amount } = req.body;
-      const accessKey = req.headers['x-access-key'];
-      const signature = req.headers['x-signature'];
-      const timestamp = req.headers['x-timestamp'];
-
-      if (!accessKey || !signature || !timestamp) {
-        return res.status(400).json({ success: false, error: '認証情報が不足しています。' });
-      }
-      if (!['buy', 'sell'].includes(type)) {
-        return res.status(400).json({ success: false, error: '取引タイプが不正です。' });
-      }
-      const numericAmount = Number(amount);
-      if (!numericAmount || numericAmount <= 0) {
-        return res.status(400).json({ success: false, error: '数量が不正です。' });
-      }
-
-      // タイムスタンプ検証（5分以内）
-      const now = Date.now();
-      if (Math.abs(now - parseInt(timestamp)) > 5 * 60 * 1000) {
-        return res.status(401).json({ success: false, error: 'リクエストが期限切れです。' });
-      }
-
-      if (!verifyApiSignature(accessKey, signature, timestamp, req.body)) {
-        return res.status(401).json({ success: false, error: '署名が無効です。' });
-      }
-
-      const resolved = resolveAccessKey(accessKey);
-      if (!resolved) {
-        return res.status(401).json({ success: false, error: 'Access Keyが無効です。' });
-      }
-
-      const { guildId, userId } = resolved;
-      const guild = client.guilds.cache.get(guildId);
-      if (!guild) {
-        return res.status(404).json({ success: false, error: 'ギルドが見つかりません。' });
-      }
-
-      let responseMessage;
-      let tkupDiff = 0;
-      const roundedAmount = Math.round(numericAmount * 100) / 100;
-
-      if (type === 'buy') {
-        const result = buyTKUC(userId, roundedAmount);
-        if (!result.success) {
-          return res.status(400).json({ success: false, error: result.message });
-        }
-        responseMessage = result.message;
-        tkupDiff = -result.tkupSpent;
-      } else {
-        const balance = getUserBalance(userId);
-        const currentRate = getTKUCRate();
-
-        if (balance.tkuc < roundedAmount) {
-          return res.status(400).json({ success: false, error: 'TKUC残高が不足しています。' });
-        }
-
-        const gross = roundedAmount * currentRate;
-        const fee = Math.round(gross * 0.02 * 100) / 100;
-        const tkupReceived = Math.round((gross - fee) * 100) / 100;
-
-        balance.tkuc = Math.round((balance.tkuc - roundedAmount) * 100) / 100;
-        balance.tkup = Math.round((balance.tkup + tkupReceived) * 100) / 100;
-        saveUserBalance(userId, balance);
-
-        recordTransaction(userId, 'sell', {
-          tkucAmount: roundedAmount,
-          tkupReceived,
-          fee,
-          rate: currentRate
-        });
-
-        responseMessage = `${roundedAmount} TKUCを売却しました。（受取 ${tkupReceived} TKUP, 手数料 ${fee} TKUP）`;
-        tkupDiff = tkupReceived;
-      }
-
-      const updatedBalance = getUserBalance(userId);
-      const rate = getTKUCRate();
-
-      sendTradeNotification({
-        guildId,
-        userId,
-        type,
-        amount: roundedAmount,
-        tkupDiff,
-        rate
-      });
-
-      res.json({
-        success: true,
-        message: responseMessage,
-        balance: updatedBalance,
-        rate,
-        timestamp: Date.now()
-      });
-    } catch (error) {
-      console.error('keys-order error:', error);
-      res.status(500).json({ success: false, error: '取引処理に失敗しました。' });
     }
   });
 
@@ -472,40 +350,6 @@ function startWebServer(client) {
     } catch (error) {
       console.error('token-order error:', error);
       res.status(500).json({ success: false, error: '取引処理に失敗しました。' });
-    }
-  });
-
-  app.post('/api/token-balance', async (req, res) => {
-    try {
-      const { token } = req.body;
-
-      if (!token || typeof token !== 'string') {
-        return res.status(400).json({ success: false, error: 'トークンを指定してください。' });
-      }
-
-      const resolved = resolveToken(token);
-      if (!resolved) {
-        return res.status(401).json({ success: false, error: 'トークンが無効です。' });
-      }
-
-      const { guildId, userId } = resolved;
-      const guild = client.guilds.cache.get(guildId);
-      if (!guild) {
-        return res.status(404).json({ success: false, error: 'ギルドが見つかりません。' });
-      }
-
-      const balance = getUserBalance(userId);
-      const rate = getTKUCRate();
-
-      res.json({
-        success: true,
-        balance,
-        rate,
-        timestamp: Date.now()
-      });
-    } catch (error) {
-      console.error('token-balance error:', error);
-      res.status(500).json({ success: false, error: '残高取得に失敗しました。' });
     }
   });
 
