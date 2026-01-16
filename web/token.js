@@ -5,7 +5,6 @@ let balancePoller = null;
 let lastBalance = null;
 let alertConfig = null;
 
-const tokenInput = document.getElementById('tokenInput');
 const loginBtn = document.getElementById('loginBtn');
 const logoutBtn = document.getElementById('logoutBtn');
 const loginStatus = document.getElementById('loginStatus');
@@ -100,76 +99,7 @@ function setTradeState(enabled) {
   tradeTypeInputs.forEach(input => input.disabled = !enabled);
 }
 
-async function login() {
-  const input = (tokenInput.value || '').trim();
-  if (!input) {
-    loginStatus.textContent = 'Access KeyとSecret Keyを入力してください。';
-    return;
-  }
-
-  // 入力形式: AccessKey:SecretKey
-  const parts = input.split(':');
-  if (parts.length !== 2) {
-    loginStatus.textContent = '形式: TKU-XXXXXX:YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY';
-    return;
-  }
-
-  const [accessKeyInput, secretKeyInput] = parts;
-  if (!accessKeyInput.startsWith('TKU-')) {
-    loginStatus.textContent = 'Access KeyはTKU-で始まる必要があります。';
-    return;
-  }
-
-  setLoading(true, '認証中...');
-  try {
-    const response = await fetch('/api/keys-login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ accessKey: accessKeyInput, secretKey: secretKeyInput })
-    });
-
-    if (!response.ok) {
-      throw new Error((await response.json()).error || 'ログインに失敗しました。');
-    }
-
-    const data = await response.json();
-    accessKey = accessKeyInput;
-    secretKey = secretKeyInput;
-
-    // ログイン成功: UI切り替え
-    document.getElementById('loginScreen').style.display = 'none';
-    document.getElementById('mainContent').style.display = 'block';
-
-    // ユーザー情報表示
-    const userInfoEl = document.getElementById('userInfo');
-    if (userInfoEl) {
-      userInfoEl.innerHTML = `
-        <div><strong>${data.user.displayName || data.user.username}</strong></div>
-        <div class="text-muted small">${data.guild.name}</div>
-      `;
-    }
-
-    loginBtn.disabled = true;
-    logoutBtn.disabled = false;
-    tokenInput.disabled = true;
-    lastBalance = data;
-    renderBalance(data);
-    setTradeState(true);
-    startPolling();
-
-    // チャート初期化
-    await initChart();
-    await updateMarketData();
-    startRealtimeUpdates();
-
-  } catch (error) {
-    accessKey = null;
-    secretKey = null;
-    loginStatus.textContent = error.message;
-  } finally {
-    setLoading(false);
-  }
-}
+// 古いlogin関数は削除 - loginWithModal関数を使用
 
 function logout() {
   stopPolling();
@@ -180,17 +110,18 @@ function logout() {
   document.getElementById('loginScreen').style.display = 'flex';
   document.getElementById('mainContent').style.display = 'none';
 
-  tokenInput.disabled = false;
-  loginBtn.disabled = false;
-  logoutBtn.disabled = true;
-  tokenInput.value = '';
+  // ナビゲーションボタン更新
+  const navLoginBtn = document.querySelector('#authButtons .btn-primary');
+  const navLogoutBtn = document.querySelector('#authButtons .btn-outline-secondary');
+  if (navLoginBtn) navLoginBtn.style.display = 'inline-block';
+  if (navLogoutBtn) navLogoutBtn.disabled = true;
+
   balanceInfo.innerHTML = '<div class="text-muted">ログインして残高を表示</div>';
   currentRateDisplay.textContent = '--.--';
   balanceTimestamp.textContent = '';
   tradeResult.textContent = '';
   tradeSummary.textContent = '取引内容: --';
   lastBalance = null;
-  loginStatus.textContent = 'ログアウトしました。';
   setTradeState(false);
 
   // ユーザー情報クリア
@@ -359,7 +290,6 @@ function checkAlert(currentRate) {
   }
 }
 
-loginBtn.addEventListener('click', login);
 logoutBtn.addEventListener('click', logout);
 executeTradeBtn.addEventListener('click', openTradeConfirmModal);
 tradeAmountInput.addEventListener('input', updateTradeSummary);
