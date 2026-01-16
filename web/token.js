@@ -346,17 +346,17 @@ function showLoginModal() {
 }
 
 async function loginWithModal() {
-  // nullチェック - DOM要素が取得できているか確認
-  if (!keyFileInput || !manualTokenInput || !loginStatus) {
-    console.error('ログインに必要なDOM要素が見つかりません');
-    return;
-  }
+  const form = document.getElementById('loginForm');
+  if (!form) return;
+
+  const formData = new FormData(form);
+  const file = formData.get('keyFile');
+  const token = formData.get('token');
 
   let accessKeyInput, secretKeyInput;
 
   // ファイルが選択されている場合
-  if (keyFileInput.files.length > 0) {
-    const file = keyFileInput.files[0];
+  if (file && file.size > 0) {
     try {
       const content = await file.text();
       const lines = content.split('\n');
@@ -378,35 +378,40 @@ async function loginWithModal() {
         }
       }
     } catch (error) {
-      loginStatus.textContent = 'ファイルの読み込みに失敗しました。';
+      const loginStatus = document.getElementById('loginStatus');
+      if (loginStatus) loginStatus.textContent = 'ファイルの読み込みに失敗しました。';
       return;
     }
   }
   // 手動入力の場合
-  else if (manualTokenInput.value.trim()) {
-    const parts = manualTokenInput.value.split(':');
+  else if (token && token.trim()) {
+    const parts = token.split(':');
     if (parts.length !== 2) {
-      loginStatus.textContent = '形式: TKU-XXXXXX:YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY';
+      const loginStatus = document.getElementById('loginStatus');
+      if (loginStatus) loginStatus.textContent = '形式: TKU-XXXXXX:YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY';
       return;
     }
     accessKeyInput = parts[0].trim();
     secretKeyInput = parts[1].trim();
   } else {
-    loginStatus.textContent = 'ファイルを選択するか、手動で入力してください。';
+    const loginStatus = document.getElementById('loginStatus');
+    if (loginStatus) loginStatus.textContent = 'ファイルを選択するか、手動で入力してください。';
     return;
   }
 
   if (!accessKeyInput.startsWith('TKU-')) {
-    loginStatus.textContent = 'Access KeyはTKU-で始まる必要があります。';
+    const loginStatus = document.getElementById('loginStatus');
+    if (loginStatus) loginStatus.textContent = 'Access KeyはTKU-で始まる必要があります。';
     return;
   }
 
-  // モーダル内ボタンの状態変更
-  const modalLoginBtn = document.getElementById('modalLoginBtn');
-  if (modalLoginBtn) {
-    modalLoginBtn.disabled = true;
-    modalLoginBtn.textContent = '認証中...';
+  // ボタンの状態変更
+  const submitBtn = form.querySelector('button[type="submit"]');
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.textContent = '認証中...';
   }
+
   try {
     const response = await fetch('/api/keys-login', {
       method: 'POST',
@@ -457,15 +462,14 @@ async function loginWithModal() {
   } catch (error) {
     accessKey = null;
     secretKey = null;
-    loginStatus.textContent = error.message;
+    const loginStatus = document.getElementById('loginStatus');
+    if (loginStatus) loginStatus.textContent = error.message;
   } finally {
-    // モーダル内ボタンの状態リセット
-    const modalLoginBtn = document.getElementById('modalLoginBtn');
-    if (modalLoginBtn) {
-      modalLoginBtn.disabled = false;
-      modalLoginBtn.textContent = '認証';
+    // ボタンの状態リセット
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = '認証';
     }
-    // ログインボタンの状態リセット
     setLoading(false);
   }
 }
@@ -512,10 +516,13 @@ document.addEventListener('DOMContentLoaded', function() {
   if (clearAlertBtn) clearAlertBtn.addEventListener('click', clearAlert);
   if (confirmTradeBtn) confirmTradeBtn.addEventListener('click', confirmTradeExecution);
 
-  // モーダルのログインボタン
-  const modalLoginBtn = document.getElementById('modalLoginBtn');
-  if (modalLoginBtn) {
-    modalLoginBtn.addEventListener('click', loginWithModal);
+  // モーダルのログインフォーム
+  const loginForm = document.getElementById('loginForm');
+  if (loginForm) {
+    loginForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      await loginWithModal();
+    });
   }
 
   // 初期化

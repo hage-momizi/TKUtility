@@ -262,24 +262,26 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label">API Keys ファイルを選択</label>
-                        <input type="file" id="keyFileInput" class="form-control" accept=".key,.json">
-                        <div class="form-text">
-                            <small class="text-muted">
-                                Discordの <code>/tk-token</code> コマンドでダウンロードした鍵ファイルを選択してください
-                            </small>
+                    <form id="loginForm" method="post" action="/api/keys-login" enctype="multipart/form-data">
+                        <div class="mb-3">
+                            <label class="form-label">API Keys ファイルを選択</label>
+                            <input type="file" id="keyFileInput" class="form-control" accept=".key,.json" name="keyFile">
+                            <div class="form-text">
+                                <small class="text-muted">
+                                    Discordの <code>/tk-token</code> コマンドでダウンロードした鍵ファイルを選択してください
+                                </small>
+                            </div>
                         </div>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">または直接入力 (Access Key : Secret Key)</label>
-                        <input id="manualTokenInput" type="password" class="form-control" placeholder="TKU-XXXXXX:YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY">
-                    </div>
-                    <div id="loginStatus" class="text-center"></div>
+                        <div class="mb-3">
+                            <label class="form-label">または直接入力 (Access Key : Secret Key)</label>
+                            <input id="manualTokenInput" type="password" class="form-control" placeholder="TKU-XXXXXX:YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY" name="token">
+                        </div>
+                        <div id="loginStatus" class="text-center"></div>
+                    </form>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">キャンセル</button>
-                    <button id="modalLoginBtn" class="btn btn-primary">認証</button>
+                    <button type="submit" form="loginForm" class="btn btn-primary">認証</button>
                 </div>
             </div>
         </div>
