@@ -301,7 +301,8 @@ async function updateTKUCRate() {
     const netDemand = getNetDemand(); // 正味需要（買-売）
 
     // フェア価格は取引約定時のみ更新
-    const fairPrice = rateData.fairPrice || 5000;
+    const fairPrice = rateData.fairPrice || rateData.currentRate || 500;
+
 
     console.log(`🔍 デバッグ: recentTrades=${recentTrades}, chatActivity=${chatActivity.toFixed(1)}, top3Ratio=${top3Ratio.toFixed(2)}, netDemand=${netDemand}`);
 
@@ -314,7 +315,7 @@ async function updateTKUCRate() {
 
 
 
-    const newRate = currentRate * (1 + changePercent / 100);
+    const newRate = currentRate * (1 + changePercent);
 
     console.log('Rate calculation:', {
       current: currentRate,
