@@ -755,10 +755,10 @@
         }
 
         /* Login Modal */
-        .login-modal-content .modal-content {
-            background: var(--card-bg);
-            border: 1px solid var(--border-subtle);
-            border-radius: 16px;
+        .login-modal-content {
+            background: var(--card-bg) !important;
+            border: 1px solid var(--border-subtle) !important;
+            border-radius: 16px !important;
         }
 
         .login-modal-content .modal-header {
@@ -769,6 +769,7 @@
 
         .login-modal-content .modal-body {
             padding: 1.5rem;
+            background: var(--card-bg);
         }
 
         .login-modal-content .form-label {
@@ -793,6 +794,31 @@
         .login-modal-content .btn-primary {
             background: linear-gradient(135deg, var(--primary-color), var(--primary-hover));
             border: none;
+        }
+
+        /* Modal背景と文字色 */
+        .modal-content {
+            background: var(--card-bg);
+            color: var(--text-primary);
+        }
+
+        .modal-header {
+            border-bottom-color: var(--border-subtle);
+            background: rgba(26, 36, 52, 0.85);
+        }
+
+        .modal-header .btn-close {
+            filter: invert(0.8);
+        }
+
+        .modal-body {
+            background: var(--card-bg);
+            color: var(--text-primary);
+        }
+
+        .modal-footer {
+            border-top-color: var(--border-subtle);
+            background: var(--card-bg);
         }
 
         /* Responsive Design */
