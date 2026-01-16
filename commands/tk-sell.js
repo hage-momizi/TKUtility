@@ -49,6 +49,10 @@ module.exports = {
       // 取引履歴記録
       recordTransaction(interaction.user.id, 'sell', { tkucAmount: roundedAmount, tkupReceived, fee, rate: currentRate });
 
+      // tickカウンタ更新
+      const { addTickSell } = require('../modules/economyService');
+      addTickSell(roundedAmount);
+
       const embed = new EmbedBuilder()
         .setTitle('✅ TKUC売却完了')
         .setDescription(`${roundedAmount} TKUCを現在のレートで売却しました。`)

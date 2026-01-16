@@ -230,6 +230,34 @@ let lastRateChange = 0;
 // 需要差分用変数
 let lastNetDemand = 0;
 
+// ===== tick用リアルタイム需要カウンタ =====
+let tickBuyVolume = 0;
+let tickSellVolume = 0;
+
+// ===== パニック係数 =====
+let panic = 0;
+
+function addTickBuy(amount) {
+  tickBuyVolume += amount;
+}
+
+function addTickSell(amount) {
+  tickSellVolume += amount;
+}
+
+function getTickNetDemand() {
+  return tickBuyVolume - tickSellVolume;
+}
+
+function getTickVolume() {
+  return tickBuyVolume + tickSellVolume;
+}
+
+function resetTickVolume() {
+  tickBuyVolume = 0;
+  tickSellVolume = 0;
+}
+
 // 市場感情（Bull/Bear）システム
 let marketSentiment = 0; // -1.0 (Bear) to +1.0 (Bull)
 
@@ -303,17 +331,21 @@ async function updateTKUCRate() {
     const recentTrades = getRecentTradeCount(); // 最近の取引数
     const netDemand = getNetDemand(); // 正味需要（買-売）
 
+    // tickベースのリアルタイム需要を取得
+    const tickNetDemand = getTickNetDemand();
+    const tickVolume = getTickVolume();
+
     // フェア価格は取引約定時のみ更新
     const fairPrice = rateData.fairPrice || rateData.currentRate || 500;
 
 
-    console.log(`🔍 デバッグ: recentTrades=${recentTrades}, chatActivity=${chatActivity.toFixed(1)}, top3Ratio=${top3Ratio.toFixed(2)}, netDemand=${netDemand}`);
+    console.log(`🔍 デバッグ: recentTrades=${recentTrades}, chatActivity=${chatActivity.toFixed(1)}, top3Ratio=${top3Ratio.toFixed(2)}, netDemand=${netDemand}, tickNetDemand=${tickNetDemand}, tickVolume=${tickVolume}`);
 
     let changePercent;
 
     // シンプル計算のみを使用（安定性重視）
     console.log('📊 プログラム計算を使用');
-    changePercent = calculateSmartRateChange(marketData, chatActivity, top3Ratio, recentTrades, netDemand);
+    changePercent = calculateSmartRateChange(marketData, chatActivity, top3Ratio, recentTrades, netDemand, tickNetDemand, tickVolume);
     console.log(`📊 スマート計算: ${changePercent.toFixed(2)}%`);
 
 
@@ -339,6 +371,9 @@ async function updateTKUCRate() {
 
     saveJSON(FILES.TKUC_RATE, rateData);
     console.log(`✅ TKUCレート更新成功: ${currentRate} → ${rateData.currentRate} TKUP (+${changePercent.toFixed(2)}%)`);
+
+    // tickカウンタをリセット
+    resetTickVolume();
 
   } catch (error) {
     console.error('❌ TKUCレート更新エラー:', error.message);
@@ -443,6 +478,9 @@ function buyTKUC(userId, tkucAmount, options = {}) {
 
   saveUserBalance(userId, balance);
   recordTransaction(userId, 'buy', { tkucAmount, tkupSpent: tkupNeeded, rate });
+
+  // tickカウンタ更新
+  addTickBuy(tkucAmount);
 
   return {
     success: true,
@@ -831,7 +869,7 @@ function testDemandImpact() {
     sellPressure: 2,
     tkupTkucRatio: 1.0
   };
-  const result1 = calculateSmartRateChange(testMarketData1, 30, 0.5, 8, 20);
+  const result1 = calculateSmartRateChange(testMarketData1, 30, 0.5, 8, 20, 10, 5);
   console.log(`テスト1 (買い需要20): ${result1.toFixed(2)}%`);
 
   // テストケース2: 売り需要が多い
@@ -842,7 +880,7 @@ function testDemandImpact() {
     sellPressure: 5,
     tkupTkucRatio: 1.0
   };
-  const result2 = calculateSmartRateChange(testMarketData2, 30, 0.5, 8, -20);
+  const result2 = calculateSmartRateChange(testMarketData2, 30, 0.5, 8, -20, -5, 3);
   console.log(`テスト2 (売り需要20): ${result2.toFixed(2)}%`);
 
   // テストケース3: クジラ大量購入
@@ -853,7 +891,7 @@ function testDemandImpact() {
     sellPressure: 2,
     tkupTkucRatio: 1.0
   };
-  const result3 = calculateSmartRateChange(testMarketData3, 30, 0.5, 8, 100);
+  const result3 = calculateSmartRateChange(testMarketData3, 30, 0.5, 8, 100, 60, 60); // tickVolume > 50 でクジラ効果
   console.log(`テスト3 (クジラ購入100): ${result3.toFixed(2)}%`);
 
   // テストケース4: 小規模市場
@@ -864,7 +902,7 @@ function testDemandImpact() {
     sellPressure: 2,
     tkupTkucRatio: 1.0
   };
-  const result4 = calculateSmartRateChange(testMarketData4, 30, 0.5, 8, 20);
+  const result4 = calculateSmartRateChange(testMarketData4, 30, 0.5, 8, 20, 0, 0); // tickなし
   console.log(`テスト4 (小規模市場): ${result4.toFixed(2)}%`);
 
   console.log('🧪 需要影響テスト完了');
@@ -1427,7 +1465,8 @@ function getRecentTradeCount() {
  * @returns {number} 変動率
  */
 
-function calculateSmartRateChange(marketData, chatActivity, top3Ratio, recentTrades, netDemand) {
+function calculateSmartRateChange(marketData, chatActivity, top3Ratio, recentTrades, netDemand, tickNetDemand, tickVolume) {
+  const DEMAND_IMPACT = 0.002;
   const currentRate = getTKUCRate();
   const fairPrice = getFairPrice();
 
@@ -1440,12 +1479,36 @@ function calculateSmartRateChange(marketData, chatActivity, top3Ratio, recentTra
   let change = 0;
 
   // =========================
-  // ① 需給インパクト（メイン）- 差分使用
+  // ① 需給インパクト（メイン）- tickベース優先
   // =========================
-  const DEMAND_IMPACT = 0.002;
-  if (recentTrades > 0) {
+  if (tickVolume > 0) {
+    const volumeScale = Math.min(3, Math.sqrt(tickVolume));
+    change += tickNetDemand * DEMAND_IMPACT * volumeScale;
+  } else if (recentTrades > 0) {
+    // tickがない場合は従来の差分を使用
     change += demandDelta * DEMAND_IMPACT;
   }
+
+  // =========================
+  // 🔥 拡張機能: クジラ検出
+  // =========================
+  if (tickVolume > 50) {
+    change *= 1.5;
+  }
+
+  // =========================
+  // 🔥 拡張機能: 同方向連続tickブースト
+  // =========================
+  if (Math.sign(tickNetDemand) === Math.sign(lastRateChange)) {
+    change *= 1.2;
+  }
+
+  // =========================
+  // 🔥 拡張機能: パニック係数
+  // =========================
+  panic += Math.max(0, -tickNetDemand) * 0.1;
+  change -= panic * 0.002;
+  panic *= 0.9;
 
   // =========================
   // ② 平常時ノイズ（小さく）
@@ -1669,6 +1732,11 @@ module.exports = {
   buyBoosterItem,
   getBoosterItems,
   formatBoosterInfo,
+  addTickBuy,
+  addTickSell,
+  getTickNetDemand,
+  getTickVolume,
+  resetTickVolume,
   testRateUpdate, // デバッグ用
   testAIConnection, // デバッグ用
   testDemandImpact, // デバッグ用
