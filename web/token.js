@@ -111,8 +111,8 @@ function logout() {
 
   // モーダルを閉じる
   const modalEl = document.getElementById('loginModal');
-  if (modalEl && window.bootstrap) {
-    const modal = bootstrap.Modal.getInstance(modalEl);
+  if (modalEl && window.Bootstrap) {
+    const modal = window.Bootstrap.Modal.getInstance(modalEl);
     if (modal) modal.hide();
   }
 
@@ -280,8 +280,8 @@ function openTradeConfirmModal() {
     if (confirmEstimate) confirmEstimate.textContent = estimate;
     if (confirmTradeTypeInput) confirmTradeTypeInput.value = type;
 
-    if (!confirmModalInstance && confirmTradeModalEl && window.bootstrap) {
-        confirmModalInstance = new bootstrap.Modal(confirmTradeModalEl);
+    if (!confirmModalInstance && confirmTradeModalEl && window.Bootstrap) {
+        confirmModalInstance = new window.Bootstrap.Modal(confirmTradeModalEl);
     }
     if (confirmModalInstance) {
         confirmModalInstance.show();
@@ -332,8 +332,8 @@ function checkAlert(currentRate) {
 function showLoginModal() {
   // モーダルを表示
   const modalEl = document.getElementById('loginModal');
-  if (modalEl && window.bootstrap) {
-    const modal = new bootstrap.Modal(modalEl);
+  if (modalEl && window.Bootstrap) {
+    const modal = new window.Bootstrap.Modal(modalEl);
     modal.show();
   }
 }
@@ -417,8 +417,8 @@ async function loginWithModal() {
 
     // モーダルを閉じる
     const modalEl = document.getElementById('loginModal');
-    if (modalEl && window.bootstrap) {
-      const modal = bootstrap.Modal.getInstance(modalEl);
+    if (modalEl && window.Bootstrap) {
+      const modal = window.Bootstrap.Modal.getInstance(modalEl);
       if (modal) modal.hide();
     }
 
