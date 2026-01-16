@@ -86,9 +86,9 @@ function appendTradeLog(entry) {
 }
 
 function setTradeState(enabled) {
-  executeTradeBtn.disabled = !enabled;
-  tradeAmountInput.disabled = !enabled;
-  tradeTypeInputs.forEach(input => input.disabled = !enabled);
+  if (executeTradeBtn) executeTradeBtn.disabled = !enabled;
+  if (tradeAmountInput) tradeAmountInput.disabled = !enabled;
+  if (tradeTypeInputs) tradeTypeInputs.forEach(input => input.disabled = !enabled);
 }
 
 // 古いlogin関数は削除 - loginWithModal関数を使用
@@ -319,6 +319,12 @@ function showLoginModal() {
 }
 
 async function loginWithModal() {
+  // nullチェック - DOM要素が取得できているか確認
+  if (!keyFileInput || !manualTokenInput || !loginStatus) {
+    console.error('ログインに必要なDOM要素が見つかりません');
+    return;
+  }
+
   let accessKeyInput, secretKeyInput;
 
   // ファイルが選択されている場合
@@ -438,9 +444,6 @@ async function loginWithModal() {
     }
   }
 }
-
-updateTradeSummary();
-setTradeState(false);
 
 // グローバル関数として公開
 window.showLoginModal = showLoginModal;
