@@ -10,7 +10,12 @@ const FILES = {
   TKUC_RATE: 'tkucrate.json',
   TKUC_TRANSACTIONS: 'tkuctransactions.json',
   PINS: 'pins.json',
-  EARTHQUAKE_CONFIG: 'earthquake.json'
+  EARTHQUAKE_CONFIG: 'earthquake.json',
+  BOT_CHANNEL_CONFIG: 'botchannel.json',
+  USER_BALANCES: 'userbalances.json',
+  TRANSACTION_HISTORY: 'transactionhistory.json',
+  ORDER_BOOK: 'orderbook.json',
+  PRIVATE_TOKENS: 'privatetokens.json'
 };
 
 // Lavalink設定
