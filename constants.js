@@ -20,7 +20,7 @@ const LAVALINK_CONFIG = {
       id: 'Node-1',
       host: 'localhost',
       port: 2333,
-      password: 'youshallnotpass',
+      password: 'momizipcA',
       secure: false,
       name: 'Node-1'
     }
