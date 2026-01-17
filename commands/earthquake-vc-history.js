@@ -1,5 +1,7 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const { fetchEarthquakeHistory, createTTSMessage, joinVoiceChannelForGuild, playAudioFile, createTTSFile, getGuildConfig, voiceConnections } = require('../modules/earthquakeService');
+const { FILES } = require('../constants');
+const { loadJSON } = require('../modules/fileStorage');
 
 const command = new SlashCommandBuilder()
   .setName('earthquake-vc-history')
@@ -29,6 +31,8 @@ async function execute(interaction) {
   await interaction.deferReply();
 
   try {
+    const config = loadJSON(FILES.EARTHQUAKE_CONFIG);
+
     // 過去の地震情報を取得
     const history = await fetchEarthquakeHistory({ limit: count });
 
@@ -59,10 +63,15 @@ async function execute(interaction) {
     for (let i = 0; i < history.length; i++) {
       const quake = history[i];
       const ttsMessage = createTTSMessage(quake);
+      console.log(`[TTS] Processing quake ${quake.id}, message: ${ttsMessage}`);
       if (ttsMessage) {
         try {
+          console.log(`[TTS] Creating TTS file for quake ${quake.id}`);
           const filePath = await createTTSFile(ttsMessage);
+          console.log(`[TTS] Created TTS file: ${filePath}`);
+          console.log(`[TTS] Playing audio for guild ${guildId}`);
           playAudioFile(guildId, filePath);
+          console.log(`[TTS] Audio play initiated for quake ${quake.id}`);
           // 次の読み上げまで少し待つ
           if (i < history.length - 1) {
             await new Promise(resolve => setTimeout(resolve, 3000));
@@ -70,6 +79,8 @@ async function execute(interaction) {
         } catch (error) {
           console.error(`Failed to play TTS for quake ${quake.id}:`, error);
         }
+      } else {
+        console.log(`[TTS] No TTS message for quake ${quake.id}`);
       }
     }
 

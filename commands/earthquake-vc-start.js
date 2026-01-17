@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
-const { joinVoiceChannelForGuild, leaveVoiceChannel, voiceConnections } = require('../modules/earthquakeService');
+const { joinVoiceChannelForGuild, leaveVoiceChannel, voiceConnections, saveGuildConfig } = require('../modules/earthquakeService');
 
 const command = new SlashCommandBuilder()
   .setName('earthquake-vc-start')
@@ -34,6 +34,9 @@ async function execute(interaction) {
 
     // ボイスチャンネルに参加
     joinVoiceChannelForGuild(interaction.client, guildId, voiceChannel.id);
+
+    // ボイスチャンネルIDを保存
+    saveGuildConfig(guildId, { vcChannelId: voiceChannel.id });
 
     const embed = new EmbedBuilder()
       .setTitle('✅ 音声読み上げ開始')
