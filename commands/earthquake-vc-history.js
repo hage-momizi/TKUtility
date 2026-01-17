@@ -70,11 +70,11 @@ async function execute(interaction) {
           const filePath = await createTTSFile(ttsMessage);
           console.log(`[TTS] Created TTS file: ${filePath}`);
           console.log(`[TTS] Playing audio for guild ${guildId}`);
-          playAudioFile(guildId, filePath);
-          console.log(`[TTS] Audio play initiated for quake ${quake.id}`);
-          // 次の読み上げまで少し待つ
+          await playAudioFile(guildId, filePath);
+          console.log(`[TTS] Audio play completed for quake ${quake.id}`);
+          // 次の読み上げまで少し間隔を空ける
           if (i < history.length - 1) {
-            await new Promise(resolve => setTimeout(resolve, 3000));
+            await new Promise(resolve => setTimeout(resolve, 1000));
           }
         } catch (error) {
           console.error(`Failed to play TTS for quake ${quake.id}:`, error);

@@ -277,18 +277,33 @@ function leaveVoiceChannel(guildId) {
  * 音声を再生
  * @param {string} guildId - ギルドID
  * @param {string} filePath - 音声ファイルのパス
+ * @returns {Promise<void>} 再生完了を待つPromise
  */
 function playAudioFile(guildId, filePath) {
-  const voiceData = voiceConnections.get(guildId);
-  if (!voiceData) return;
+  return new Promise((resolve, reject) => {
+    const voiceData = voiceConnections.get(guildId);
+    if (!voiceData) {
+      reject(new Error('Voice connection not found'));
+      return;
+    }
 
-  const resource = createAudioResource(filePath);
-  voiceData.player.play(resource);
+    const resource = createAudioResource(filePath);
+    voiceData.player.play(resource);
 
-  voiceData.player.on(AudioPlayerStatus.Idle, () => {
-    // 再生終了後にファイルを削除
-    fs.unlink(filePath, (err) => {
-      if (err) console.error('Failed to delete TTS file:', err);
+    voiceData.player.once(AudioPlayerStatus.Idle, () => {
+      // 再生終了後にファイルを削除
+      fs.unlink(filePath, (err) => {
+        if (err) console.error('Failed to delete TTS file:', err);
+      });
+      resolve();
+    });
+
+    voiceData.player.once('error', (error) => {
+      console.error('Audio player error:', error);
+      fs.unlink(filePath, (err) => {
+        if (err) console.error('Failed to delete TTS file:', err);
+      });
+      reject(error);
     });
   });
 }
