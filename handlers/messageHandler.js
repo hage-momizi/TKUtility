@@ -425,6 +425,20 @@ async function handlePinUpdate(message) {
  * @param {Client} client - Discordクライアント
  */
 async function handleInteraction(interaction, client) {
+  if (interaction.isAutocomplete()) {
+    if (interaction.commandName === 'setvoice') {
+      const focusedOption = interaction.options.getFocused(true);
+      if (focusedOption.name === 'character') {
+        const { getSpeakerMap } = require('../modules/yomiageService');
+        const speakerMap = getSpeakerMap();
+        const filtered = Object.keys(speakerMap).filter(choice => choice.toLowerCase().includes(focusedOption.value.toLowerCase())).slice(0, 25);
+        const choices = filtered.map(name => ({ name, value: name }));
+        await interaction.respond(choices);
+      }
+    }
+    return;
+  }
+
   if (interaction.isChatInputCommand()) {
     const commandName = interaction.commandName;
     const handler = commandHandlers[commandName];
