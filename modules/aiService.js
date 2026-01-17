@@ -385,36 +385,109 @@ async function* streamAIResponse(userMessage, control = '', provider = 'perplexi
       });
       model = 'openai/gpt-oss-120b:free';
     } else if (provider === 'ollama') {
-      // Ollamaの場合、環境変数を一時的にクリアしてOpenAI APIに飛ばないようにする
-      const originalApiKey = process.env.OPENAI_API_KEY;
-      process.env.OPENAI_API_KEY = undefined;
+      // OllamaネイティブAPIを使用（より純粋なストリーミング）
+      const ollamaUrl = 'https://arguments-conventions-taxation-soonest.trycloudflare.com/api/generate';
 
-      try {
-        // Ollamaの場合、thinkingを有効にするために特別なプロンプトを使用
-        const thinkingMessages = [
-          {
-            role: 'system',
-            content: `${control}\n\nあなたは思考プロセスを表示しながら回答するAIです。まず<thinking>タグ内で考え、その後<response>タグ内で最終回答をしてください。`
-          },
-          ...recentHistory,
-          {
-            role: 'user',
-            content: userMessage
-          }
-        ];
-
-        stream = await ollamaClient.chat.completions.create({
-          model: 'gpt-oss-20b',
-          messages: thinkingMessages,
-          stream: true,
-          max_tokens: 2000,
-          temperature: 0.7
-        });
-        model = 'gpt-oss-20b';
-      } finally {
-        // 環境変数を復元
-        process.env.OPENAI_API_KEY = originalApiKey;
+      // 会話履歴をプロンプト形式に変換
+      let prompt = '';
+      if (control) {
+        prompt += `${control}\n\n`;
       }
+
+      // 最近の会話履歴を追加
+      const recentHistory = conversationHistory.slice(-10); // 直近10件
+      for (const msg of recentHistory) {
+        if (msg.role === 'user') {
+          prompt += `ユーザー: ${msg.content}\n`;
+        } else if (msg.role === 'assistant') {
+          prompt += `アシスタント: ${msg.content}\n`;
+        }
+      }
+
+      // thinking表示用の特別プロンプト（安全な区切り文字を使用）
+      prompt += `ユーザー: ${userMessage}\n\n`;
+      prompt += `アシスタント: まず### THINKINGセクションで考え、その後### RESPONSEセクションで最終回答をしてください。\n\n`;
+
+      // OllamaネイティブAPIでストリーミング
+      const response = await fetch(ollamaUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'gpt-oss:20b',
+          prompt: prompt,
+          stream: true,
+          options: {
+            temperature: 0.7,
+            num_predict: 2000
+          }
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Ollama API error: ${response.status}`);
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+
+      let isThinking = false;
+      let thinkingContent = '';
+      let responseContent = '';
+      let buffer = '';
+
+      // ストリーミングデータを安全に処理
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop(); // 未完成JSONを保持
+
+        for (const line of lines) {
+          if (!line.trim()) continue;
+
+          try {
+            const data = JSON.parse(line);
+            const content = data.response || '';
+
+            if (content) {
+              // thinkingとresponseを安全な区切り文字で分離
+              if (content.includes('### THINKING')) {
+                isThinking = true;
+                continue;
+              } else if (content.includes('### RESPONSE')) {
+                isThinking = false;
+                // thinking完了を通知
+                if (thinkingContent.trim()) {
+                  yield { type: 'thinking_complete', content: thinkingContent.trim() };
+                  thinkingContent = '';
+                }
+                continue;
+              } else if (isThinking) {
+                thinkingContent += content;
+                yield { type: 'thinking', content: content };
+              } else {
+                responseContent += content;
+                yield { type: 'response', content: content };
+              }
+            }
+
+            if (data.done) {
+              // ストリーム終了時にthinking_completeが送信されていない場合
+              if (thinkingContent && !responseContent) {
+                yield { type: 'thinking_complete', content: thinkingContent.trim() };
+              }
+              return;
+            }
+          } catch (e) {
+            // JSONパースエラーは無視
+            continue;
+          }
+        }
+      }
+
+      return; // ストリーム終了
     }
 
     let isThinking = false;
