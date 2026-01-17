@@ -14,7 +14,7 @@ const openRouterClient = new OpenAI({
 });
 
 const ollamaClient = new OpenAI({
-  baseURL: 'https://arguments-conventions-taxation-soonest.trycloudflare.com/',
+  baseURL: 'https://arguments-conventions-taxation-soonest.trycloudflare.com/v1',
   apiKey: 'ollama', // OllamaはAPIキーを必要としないが、OpenAIクライアントのためダミー
 });
 
