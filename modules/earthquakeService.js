@@ -224,7 +224,11 @@ async function createTTSFile(text) {
     fs.mkdirSync(path.dirname(filePath), { recursive: true });
   }
 
+  console.log(`[TTS] API Key available: ${!!process.env.ELEVENLABS_API_KEY}`);
+  console.log(`[TTS] Text to convert: ${text}`);
+
   try {
+    console.log('[TTS] Attempting ElevenLabs API call...');
     const response = await axios.post(
       `https://api.elevenlabs.io/v1/text-to-speech/j210dv0vWm7fCknyQpbA`,
       {
@@ -242,19 +246,24 @@ async function createTTSFile(text) {
           'xi-api-key': process.env.ELEVENLABS_API_KEY
         },
         responseType: 'stream',
-        timeout: 30000
+        timeout: 30000,
+        decompress: true  // gzip解凍を有効化
       }
     );
 
+    console.log('[TTS] ElevenLabs API call successful');
     return new Promise((resolve, reject) => {
       const writer = fs.createWriteStream(filePath);
       response.data.pipe(writer);
 
-      writer.on('finish', () => resolve(filePath));
+      writer.on('finish', () => {
+        console.log(`[TTS] File saved: ${filePath}`);
+        resolve(filePath);
+      });
       writer.on('error', reject);
     });
   } catch (error) {
-    console.error('ElevenLabs TTS error:', error.response?.data || error.message);
+    console.error('ElevenLabs TTS error:', error.response?.status, error.response?.data || error.message);
     // フォールバックとしてgTTSを使用
     console.log('Falling back to gTTS...');
     const gttsInstance = new gtts(text, 'ja');
