@@ -385,27 +385,36 @@ async function* streamAIResponse(userMessage, control = '', provider = 'perplexi
       });
       model = 'openai/gpt-oss-120b:free';
     } else if (provider === 'ollama') {
-      // Ollamaの場合、thinkingを有効にするために特別なプロンプトを使用
-      const thinkingMessages = [
-        {
-          role: 'system',
-          content: `${control}\n\nあなたは思考プロセスを表示しながら回答するAIです。まず<thinking>タグ内で考え、その後<response>タグ内で最終回答をしてください。`
-        },
-        ...recentHistory,
-        {
-          role: 'user',
-          content: userMessage
-        }
-      ];
+      // Ollamaの場合、環境変数を一時的にクリアしてOpenAI APIに飛ばないようにする
+      const originalApiKey = process.env.OPENAI_API_KEY;
+      process.env.OPENAI_API_KEY = undefined;
 
-      stream = await ollamaClient.chat.completions.create({
-        model: 'gpt-oss-20b',
-        messages: thinkingMessages,
-        stream: true,
-        max_tokens: 2000,
-        temperature: 0.7
-      });
-      model = 'gpt-oss-20b';
+      try {
+        // Ollamaの場合、thinkingを有効にするために特別なプロンプトを使用
+        const thinkingMessages = [
+          {
+            role: 'system',
+            content: `${control}\n\nあなたは思考プロセスを表示しながら回答するAIです。まず<thinking>タグ内で考え、その後<response>タグ内で最終回答をしてください。`
+          },
+          ...recentHistory,
+          {
+            role: 'user',
+            content: userMessage
+          }
+        ];
+
+        stream = await ollamaClient.chat.completions.create({
+          model: 'gpt-oss-20b',
+          messages: thinkingMessages,
+          stream: true,
+          max_tokens: 2000,
+          temperature: 0.7
+        });
+        model = 'gpt-oss-20b';
+      } finally {
+        // 環境変数を復元
+        process.env.OPENAI_API_KEY = originalApiKey;
+      }
     }
 
     let isThinking = false;
