@@ -44,8 +44,9 @@ async function initializeBot(client) {
  * @param {Client} client - Discordクライアント
  */
 async function initializeLavalink(client) {
+  console.log('LAVALINK_CONFIG.nodes:', JSON.stringify(LAVALINK_CONFIG.nodes, null, 2));
   client.lavalink = new LavalinkManager({
-    ...LAVALINK_CONFIG,
+    nodes: LAVALINK_CONFIG.nodes,
     sendToShard: (guildId, payload) => {
       client.guilds.cache.get(guildId)?.shard.send(payload);
     },
@@ -224,6 +225,7 @@ function setupSchedules(client) {
 }
 
 module.exports = {
+  initializeBot,
   FILES,
   LAVALINK_CONFIG
 };
