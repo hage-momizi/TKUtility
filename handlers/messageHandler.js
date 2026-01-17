@@ -23,6 +23,7 @@ const commandHandlers = {
   play: () => require('../commands/play'),
   'play-lofi': () => require('../commands/play-lofi'),
   skip: () => require('../commands/skip'),
+  'skip-yomiage': () => require('../commands/skip-yomiage'),
   playlist: () => require('../commands/playlist'),
   stop: () => require('../commands/stop'),
   volume: () => require('../commands/volume'),
