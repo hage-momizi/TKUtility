@@ -1,5 +1,5 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
-const { FILES, aiRateLimit, ADMIN_COMMANDS } = require('../config/constants');
+const { FILES, aiRateLimit, ADMIN_COMMANDS } = require('../constants');
 const { loadJSON, saveJSON } = require('../modules/fileStorage');
 const { streamAIResponse, extractUserInfoFromChat } = require('../modules/aiService');
 const { calculateTKUPGain, earnTKUP } = require('../modules/economyService');
@@ -180,21 +180,51 @@ async function handleAIChat(message) {
     }
 
     let fullResponse = '';
+    let thinkingResponse = '';
     let lastEditTime = Date.now();
+    let thinkingMessage = null;
     const generator = streamAIResponse(message.content, enhancedControl, guildConfig.provider || 'perplexity', conversationHistory);
 
     for await (const chunk of generator) {
-      fullResponse += chunk;
-      // リアルタイム更新（200msごとに更新してレートリミットを回避）
-      const now = Date.now();
-      if (now - lastEditTime > 200) {
-        await responseMessage.edit(`<a:reimuhakurei:1459951142506070178>${fullResponse}<a:loading:1459949561173901456>`);
-        lastEditTime = now;
+      if (chunk.type === 'thinking') {
+        thinkingResponse += chunk.content;
+        // thinking表示（隠しテキスト）
+        const now = Date.now();
+        if (now - lastEditTime > 200) {
+          if (!thinkingMessage) {
+            thinkingMessage = await message.reply(`<a:thinkingnow:1462101218146123848>... : -#${thinkingResponse} <a:loading:1459949561173901456>`);
+          } else {
+            await thinkingMessage.edit(`<a:thinkingnow:1462101218146123848>... : -#${thinkingResponse} <a:loading:1459949561173901456>`);
+          }
+          lastEditTime = now;
+        }
+      } else if (chunk.type === 'thinking_complete') {
+        // thinking完了、最終thinkingを表示
+        if (thinkingMessage) {
+          await thinkingMessage.edit(`<a:thinkingnow:1462101218146123848>... : -#${chunk.content} <a:loading:1459949561173901456>`);
+        } else {
+          thinkingMessage = await message.reply(`<a:thinkingnow:1462101218146123848>... : -#${chunk.content} <a:loading:1459949561173901456>`);
+        }
+      } else if (chunk.type === 'response') {
+        fullResponse += chunk.content;
+        // 最終応答のリアルタイム更新
+        const now = Date.now();
+        if (now - lastEditTime > 200) {
+          await responseMessage.edit(`<a:reimuhakurei:1459951142506070178>${fullResponse}<a:loading:1459949561173901456>`);
+          lastEditTime = now;
+        }
       }
     }
 
     // 最終更新（アニメーション除去）
     await responseMessage.edit(fullResponse);
+
+    // thinkingメッセージを削除（オプション）
+    if (thinkingMessage) {
+      setTimeout(() => {
+        thinkingMessage.delete().catch(() => {});
+      }, 5000); // 5秒後に削除
+    }
 
     // 会話履歴を更新
     conversationHistory.push({ role: 'user', content: message.content });

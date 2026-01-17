@@ -1,6 +1,6 @@
-あconst { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const { loadJSON, saveJSON } = require('../modules/fileStorage');
-const { FILES } = require('../config/constants');
+    const { FILES } = require('../constants');
 
 module.exports = {
   command: new SlashCommandBuilder()
@@ -12,7 +12,8 @@ module.exports = {
         .setRequired(true)
         .addChoices(
           { name: 'OpenRouter', value: 'openrouter' },
-          { name: 'Perplexity', value: 'perplexity' }
+          { name: 'Perplexity', value: 'perplexity' },
+          { name: 'Ollama', value: 'ollama' }
         ))
     .addStringOption(option =>
       option.setName('model')
@@ -43,16 +44,23 @@ module.exports = {
 
       // デフォルトモデル設定
       if (!aiConfig.model) {
-        aiConfig.model = provider === 'openrouter' ? 'openai/gpt-oss-120b:free' : 'sonar';
+        if (provider === 'openrouter') {
+          aiConfig.model = 'openai/gpt-oss-120b:free';
+        } else if (provider === 'ollama') {
+          aiConfig.model = 'gpt-oss-20b';
+        } else {
+          aiConfig.model = 'sonar';
+        }
       }
 
       saveJSON(FILES.AI_CONFIG, aiConfig);
 
+      const providerName = provider === 'openrouter' ? 'OpenRouter' : provider === 'ollama' ? 'Ollama' : 'Perplexity';
       const embed = new EmbedBuilder()
         .setTitle('✅ AIプロバイダー切り替え完了')
         .setColor(0x00ff00)
         .addFields(
-          { name: 'プロバイダー', value: provider === 'openrouter' ? 'OpenRouter' : 'Perplexity', inline: true },
+          { name: 'プロバイダー', value: providerName, inline: true },
           { name: 'モデル', value: aiConfig.model, inline: true },
           { name: 'ステータス', value: '有効', inline: true }
         )

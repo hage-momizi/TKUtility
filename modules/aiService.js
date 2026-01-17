@@ -1,5 +1,5 @@
 const OpenAI = require('openai');
-const { FILES } = require('../config/constants');
+const { FILES } = require('../constants');
 const { loadJSON, saveJSON } = require('./fileStorage');
 require('dotenv').config();
 
@@ -11,6 +11,11 @@ const perplexityClient = new OpenAI({
 const openRouterClient = new OpenAI({
   baseURL: 'https://openrouter.ai/api/v1',
   apiKey: process.env.OPENROUTER_API_KEY,
+});
+
+const ollamaClient = new OpenAI({
+  baseURL: 'https://arguments-conventions-taxation-soonest.trycloudflare.com/',
+  apiKey: 'ollama', // OllamaはAPIキーを必要としないが、OpenAIクライアントのためダミー
 });
 
 /**
@@ -330,12 +335,12 @@ async function apiCallWithRetry(apiCall, retries = 3) {
 }
 
 /**
- * AIチャットストリーミング応答
+ * AIチャットストリーミング応答（thinking対応）
  * @param {string} userMessage - ユーザーのメッセージ
  * @param {string} control - 制御文字列（口調設定）
- * @param {string} provider - AIプロバイダー ('perplexity' or 'openrouter')
+ * @param {string} provider - AIプロバイダー ('perplexity', 'openrouter', 'ollama')
  * @param {Array} conversationHistory - 会話履歴 [{ role: 'user'|'assistant', content: string }]
- * @returns {AsyncGenerator<string>} ストリーミングテキスト
+ * @returns {AsyncGenerator<{type: 'thinking'|'response', content: string}>} ストリーミングデータ
  */
 async function* streamAIResponse(userMessage, control = '', provider = 'perplexity', conversationHistory = []) {
   try {
@@ -360,6 +365,7 @@ async function* streamAIResponse(userMessage, control = '', provider = 'perplexi
     });
 
     let stream;
+    let model;
     if (provider === 'perplexity') {
       stream = await perplexityClient.chat.completions.create({
         model: 'sonar',
@@ -368,7 +374,8 @@ async function* streamAIResponse(userMessage, control = '', provider = 'perplexi
         max_tokens: 1000,
         temperature: 0.7
       });
-    } else {
+      model = 'sonar';
+    } else if (provider === 'openrouter') {
       stream = await openRouterClient.chat.completions.create({
         model: 'openai/gpt-oss-120b:free',
         messages: messages,
@@ -376,28 +383,89 @@ async function* streamAIResponse(userMessage, control = '', provider = 'perplexi
         max_tokens: 1000,
         temperature: 0.7
       });
+      model = 'openai/gpt-oss-120b:free';
+    } else if (provider === 'ollama') {
+      // Ollamaの場合、thinkingを有効にするために特別なプロンプトを使用
+      const thinkingMessages = [
+        {
+          role: 'system',
+          content: `${control}\n\nあなたは思考プロセスを表示しながら回答するAIです。まず<thinking>タグ内で考え、その後<response>タグ内で最終回答をしてください。`
+        },
+        ...recentHistory,
+        {
+          role: 'user',
+          content: userMessage
+        }
+      ];
+
+      stream = await ollamaClient.chat.completions.create({
+        model: 'gpt-oss-20b',
+        messages: thinkingMessages,
+        stream: true,
+        max_tokens: 2000,
+        temperature: 0.7
+      });
+      model = 'gpt-oss-20b';
     }
+
+    let isThinking = false;
+    let thinkingContent = '';
+    let responseContent = '';
 
     for await (const chunk of stream) {
       const content = chunk.choices[0]?.delta?.content;
       if (content) {
-        yield content;
+        if (provider === 'ollama') {
+          // Ollamaの場合、thinkingとresponseを分離
+          if (content.includes('<thinking>')) {
+            isThinking = true;
+            continue;
+          } else if (content.includes('</thinking>')) {
+            isThinking = false;
+            // thinking完了を通知
+            yield { type: 'thinking_complete', content: thinkingContent.trim() };
+            thinkingContent = '';
+            continue;
+          } else if (content.includes('<response>')) {
+            // response開始
+            continue;
+          } else if (content.includes('</response>')) {
+            // response完了
+            continue;
+          } else if (isThinking) {
+            thinkingContent += content;
+            yield { type: 'thinking', content: content };
+          } else {
+            responseContent += content;
+            yield { type: 'response', content: content };
+          }
+        } else {
+          // 他のプロバイダーの場合、通常のresponseとして扱う
+          yield { type: 'response', content: content };
+        }
       }
     }
+
+    // ストリーム終了時にthinking_completeが送信されていない場合
+    if (provider === 'ollama' && thinkingContent && !responseContent) {
+      yield { type: 'thinking_complete', content: thinkingContent.trim() };
+    }
+
   } catch (error) {
     console.error(`${provider} streaming error:`, error);
 
     // 詳細なエラーメッセージ
+    let errorMessage = '申し訳ありませんが、エラーが発生しました。';
     if (error.status === 401) {
       console.error(`⚠️ ${provider} APIキー認証エラー: APIキーを確認してください`);
-      yield `${provider} APIの認証に失敗しました。管理者に連絡してください。`;
+      errorMessage = `${provider} APIの認証に失敗しました。管理者に連絡してください。`;
     } else if (error.status === 429) {
-      yield 'APIの使用制限に達しました。しばらくしてから再度お試しください。';
+      errorMessage = 'APIの使用制限に達しました。しばらくしてから再度お試しください。';
     } else if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND') {
-      yield 'APIサーバーに接続できませんでした。ネットワーク接続を確認してください。';
-    } else {
-      yield '申し訳ありませんが、エラーが発生しました。';
+      errorMessage = 'APIサーバーに接続できませんでした。ネットワーク接続を確認してください。';
     }
+
+    yield { type: 'response', content: errorMessage };
   }
 }
 

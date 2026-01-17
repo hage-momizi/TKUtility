@@ -1,4 +1,4 @@
-const { FILES } = require('../config/constants');
+const { FILES } = require('../constants');
 const { loadJSON, saveJSON } = require('./fileStorage');
 const { buyTKUC } = require('./economyService');
 

@@ -1,5 +1,5 @@
 const { SlashCommandBuilder } = require('discord.js');
-const { FILES } = require('../config/constants');
+const { FILES } = require('../constants');
 const { loadJSON, saveJSON } = require('../modules/fileStorage');
 const { startBot, getBotStatus } = require('../modules/marketBotService');
 

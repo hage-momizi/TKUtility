@@ -13,7 +13,7 @@ const {
   recordTransaction
 } = require('./modules/economyService');
 const { resolveToken } = require('./modules/tokenService');
-const { FILES } = require('./config/constants');
+const { FILES } = require('./constants');
 
 const newsConfigFile = path.join(__dirname, 'newsconfig.json');
 

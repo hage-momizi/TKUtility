@@ -14,7 +14,8 @@ const command = new SlashCommandBuilder()
       .setRequired(true)
       .addChoices(
         { name: 'Perplexity', value: 'perplexity' },
-        { name: 'OpenRouter', value: 'openrouter' }
+        { name: 'OpenRouter', value: 'openrouter' },
+        { name: 'Ollama', value: 'ollama' }
       )
   );
 
@@ -30,7 +31,8 @@ async function execute(interaction, client) {
   config[guildId].provider = provider;
   saveJSON(aiChannelFile, config);
 
-  await interaction.reply({ content: `AIプロバイダーを${provider === 'perplexity' ? 'Perplexity' : 'OpenRouter'}に変更しました。`, ephemeral: true });
+  const providerName = provider === 'perplexity' ? 'Perplexity' : provider === 'openrouter' ? 'OpenRouter' : 'Ollama';
+  await interaction.reply({ content: `AIプロバイダーを${providerName}に変更しました。`, ephemeral: true });
 }
 
 module.exports = { command, execute };
