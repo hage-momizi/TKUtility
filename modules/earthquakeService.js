@@ -417,6 +417,7 @@ module.exports = {
   joinVoiceChannelForGuild,
   leaveVoiceChannel,
   playAudioFile,
+  createTTSFile,
   createTTSMessage,
   voiceConnections
 };
