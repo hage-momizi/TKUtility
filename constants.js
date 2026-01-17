@@ -17,6 +17,7 @@ const FILES = {
 const LAVALINK_CONFIG = {
   nodes: [
     {
+      id: 'Node-1',
       host: 'localhost',
       port: 2333,
       password: 'youshallnotpass',
