@@ -4,7 +4,7 @@ require('dotenv').config();
 const { Client, DefaultWebSocketManagerOptions, GatewayIntentBits, Events } = require('discord.js');
 const { initializeBot } = require('./initializers/initializeBot');
 const { handleAIChat, handlePinUpdate, handleInteraction, handleTKUPGain, handleRevolutionFailure } = require('./handlers/messageHandler');
-const { DISCORD_INTENTS } = require('./config/constants');
+const { DISCORD_INTENTS } = require('./constants');
 
 // Discord WebSocket設定
 DefaultWebSocketManagerOptions.identifyProperties.browser = 'Discord iOS';
