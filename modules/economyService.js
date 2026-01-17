@@ -486,8 +486,23 @@ function buyTKUC(userId, tkucAmount, options = {}) {
   saveUserBalance(userId, balance);
   recordTransaction(userId, 'buy', { tkucAmount, tkupSpent: tkupNeeded, rate });
 
-  // tickカウンタ更新
-  addTickBuy(tkucAmount);
+  // tickカウンタ更新（購入金額を考慮）
+  addTickBuy(tkupNeeded); // TKUP消費額を基準に影響力を計算
+
+  // 大口購入時の特別処理
+  if (tkupNeeded > 1000) { // 1000 TKUP以上の大口購入
+    console.log(`🐋 大口購入検出: ${tkupNeeded} TKUP消費 - レートに追加影響を与えます`);
+
+    // 即時レート変動を追加（次のtickで反映）
+    const immediateImpact = Math.min(0.01, tkupNeeded / 100000); // 最大1%まで
+    const rateData = loadJSON(FILES.TKUC_RATE);
+    if (rateData.currentRate) {
+      rateData.currentRate *= (1 + immediateImpact);
+      rateData.currentRate = Math.round(rateData.currentRate * 100) / 100;
+      saveJSON(FILES.TKUC_RATE, rateData);
+      console.log(`💥 即時レート変動: +${(immediateImpact * 100).toFixed(2)}% (${rateData.currentRate} TKUP)`);
+    }
+  }
 
   return {
     success: true,
