@@ -62,7 +62,11 @@ const commandHandlers = {
   'tk-sell': () => require('../commands/tk-sell'),
   'tk-bot-channel-set': () => require('../commands/tk-bot-channel-set'),
   'tk-bot-run': () => require('../commands/tk-bot-run'),
-  'tk-token': () => require('../commands/tk-token')
+  'tk-token': () => require('../commands/tk-token'),
+  join: () => require('../commands/join'),
+  leave: () => require('../commands/leave'),
+  setvoice: () => require('../commands/setvoice'),
+  'skip-yomiage': () => require('../commands/skip-yomiage')
 };
 
 /**
