@@ -224,5 +224,6 @@ function setupSchedules(client) {
 }
 
 module.exports = {
-  initializeBot,
+  FILES,
+  LAVALINK_CONFIG
 };
