@@ -596,10 +596,61 @@ async function handleInteraction(interaction, client) {
   }
 }
 
+/**
+ * 読み上げメッセージ処理
+ * @param {Message} message - Discordメッセージ
+ */
+async function handleYomiageMessage(message) {
+  if (message.author.bot) return;
+
+  const { getActiveConnections, playText, loadUserSettings } = require('../modules/yomiageService');
+  const activeConnections = getActiveConnections();
+
+  if (!activeConnections[message.guildId]) return;
+
+  const active = activeConnections[message.guildId];
+  // 保存されたテキストチャンネルIDと比較
+  if (message.channel.id !== active.textChannelId) return;
+
+  // / で始まる場合は読み上げをしない
+  if (message.content.trim().startsWith('/')) return;
+
+  // 設定がない場合はデフォルトのスピーカーID (0) を使用
+  const userSettings = loadUserSettings();
+  const speakerId = userSettings[message.author.id]?.speaker || 0;
+
+  // テキストの構築: 元のコンテンツに添付ファイルを追加
+  let textToPlay = message.content;
+  if (message.attachments.size > 0) {
+    const hasImage = message.attachments.some(attach => attach.contentType && attach.contentType.startsWith('image/'));
+    if (hasImage) {
+      textToPlay += ' 画像が添付されました。';
+    } else {
+      textToPlay += ' ファイルが添付されました。';
+    }
+  }
+
+  // 返信の場合の追加処理
+  if (message.reference) {
+    try {
+      const repliedMessage = await message.channel.messages.fetch(message.reference.messageId);
+      const repliedName = repliedMessage.author.displayName || '不明';
+      const senderName = message.author.displayName || '不明';
+      textToPlay = `${repliedName}さんへ${senderName}さんが返信しました。${textToPlay}`;
+    } catch (error) {
+      console.error('Error fetching replied message:', error);
+    }
+  }
+
+  // playText関数でキューイングと再生を処理
+  playText(textToPlay, speakerId, active.player, message.guildId);
+}
+
 module.exports = {
   handleAIChat,
   handlePinUpdate,
   handleInteraction,
   handleTKUPGain,
   handleRevolutionFailure,
+  handleYomiageMessage,
 };
