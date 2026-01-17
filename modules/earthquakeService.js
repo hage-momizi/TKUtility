@@ -211,7 +211,7 @@ function getColorByScale(scale) {
 }
 
 /**
- * テキストを音声ファイルに変換
+ * テキストを音声ファイルに変換 (ElevenLabs API使用)
  * @param {string} text - 読み上げるテキスト
  * @returns {Promise<string>} 音声ファイルのパス
  */
@@ -224,14 +224,47 @@ async function createTTSFile(text) {
     fs.mkdirSync(path.dirname(filePath), { recursive: true });
   }
 
-  const gttsInstance = new gtts(text, 'ja');
+  try {
+    const response = await axios.post(
+      `https://api.elevenlabs.io/v1/text-to-speech/j210dv0vWm7fCknyQpbA`,
+      {
+        text: text,
+        model_id: 'eleven_monolingual_v1',
+        voice_settings: {
+          stability: 0.5,
+          similarity_boost: 0.5
+        }
+      },
+      {
+        headers: {
+          'Accept': 'audio/mpeg',
+          'Content-Type': 'application/json',
+          'xi-api-key': process.env.ELEVENLABS_API_KEY
+        },
+        responseType: 'stream',
+        timeout: 30000
+      }
+    );
 
-  return new Promise((resolve, reject) => {
-    gttsInstance.save(filePath, (err) => {
-      if (err) reject(err);
-      else resolve(filePath);
+    return new Promise((resolve, reject) => {
+      const writer = fs.createWriteStream(filePath);
+      response.data.pipe(writer);
+
+      writer.on('finish', () => resolve(filePath));
+      writer.on('error', reject);
     });
-  });
+  } catch (error) {
+    console.error('ElevenLabs TTS error:', error.response?.data || error.message);
+    // フォールバックとしてgTTSを使用
+    console.log('Falling back to gTTS...');
+    const gttsInstance = new gtts(text, 'ja');
+    return new Promise((resolve, reject) => {
+      gttsInstance.save(filePath, (err) => {
+        if (err) reject(err);
+        else resolve(filePath);
+      });
+    });
+  }
 }
 
 /**
@@ -434,5 +467,6 @@ module.exports = {
   playAudioFile,
   createTTSFile,
   createTTSMessage,
-  voiceConnections
+  voiceConnections,
+  SCALE_MAP
 };

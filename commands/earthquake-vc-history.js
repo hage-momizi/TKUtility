@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
-const { fetchEarthquakeHistory, createTTSMessage, joinVoiceChannelForGuild, playAudioFile, createTTSFile, getGuildConfig, voiceConnections } = require('../modules/earthquakeService');
+const { fetchEarthquakeHistory, createTTSMessage, joinVoiceChannelForGuild, playAudioFile, createTTSFile, getGuildConfig, voiceConnections, SCALE_MAP } = require('../modules/earthquakeService');
 const { FILES } = require('../constants');
 const { loadJSON } = require('../modules/fileStorage');
 
@@ -62,7 +62,27 @@ async function execute(interaction) {
     // 順番に読み上げ
     for (let i = 0; i < history.length; i++) {
       const quake = history[i];
-      const ttsMessage = createTTSMessage(quake);
+      let ttsMessage = '';
+
+      if (quake.code === 551 && quake.earthquake) {
+        const eq = quake.earthquake;
+        const hypocenter = eq.hypocenter?.name || '不明';
+        const maxScale = SCALE_MAP[eq.maxScale] || '不明';
+        const magnitude = eq.hypocenter?.magnitude ? `マグニチュード${eq.hypocenter.magnitude}` : '';
+        const time = eq.time ? new Date(eq.time).toLocaleString('ja-JP', {
+          month: 'numeric',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        }) : '';
+
+        if (i === 0) {
+          ttsMessage = `地震情報です。${time}、震源地は${hypocenter}、最大震度は${maxScale}です。${magnitude}`;
+        } else {
+          ttsMessage = `${time}、震源地は${hypocenter}、最大震度は${maxScale}です。${magnitude}`;
+        }
+      }
+
       console.log(`[TTS] Processing quake ${quake.id}, message: ${ttsMessage}`);
       if (ttsMessage) {
         try {
