@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const { Readable } = require('stream');
 
-const VOICEVOX_BASE_URL = 'http://100.72.231.58:50021';
+const VOICEVOX_BASE_URL = 'https://voicevox.chiba.win';
 
 // アクティブな接続管理
 let activeConnections = {};
