@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const { Readable } = require('stream');
 
-const VOICEVOX_BASE_URL = 'https://cooperation-dining-feels-dresses.trycloudflare.com';
+const VOICEVOX_BASE_URL = 'http://100.72.231.58:50021';
 
 // アクティブな接続管理
 let activeConnections = {};
